@@ -142,50 +142,270 @@ namespace RosterApiLambda
 
             using (var client = new AmazonDynamoDBClient())
             {
-                //body.Data = resource switch
-                //{
-                //"/organizations/{organizationId}" when httpMethod == "GET" => {
-                //    var key = new Dictionary<string, AttributeValue>
-                //        {
-                //            { "PK", new AttributeValue(organizationId) },
-                //            { "SK", new AttributeValue("ORGANIZATION") }
-                //        };
-                //    var getItemRequest = new GetItemRequest { TableName = tableName, Key = key };
-                //    var getItemResponse = await client.GetItemAsync(getItemRequest);
-                //    return getItemResponse.Item["data"].S;
-                //    },
-                //_ => throw new NotImplementedException(),
-                //};
-
                 switch (resource)
                 {
                     case "/organizations/{organizationId}":
-                        var key = new Dictionary<string, AttributeValue>
                         {
-                            { "PK", new AttributeValue(organizationId) },
-                            { "SK", new AttributeValue("ORGANIZATION") }
-                        };
-                        switch (httpMethod)
-                        {
-                            case "GET":
+                            var key = new Dictionary<string, AttributeValue>
+                                {
+                                    { "PK", new AttributeValue($"ORGANIZATION#{organizationId}") },
+                                    { "SK", new AttributeValue("ORGANIZATION") }
+                                };
+                            switch (httpMethod)
                             {
-                                var getItemRequest = new GetItemRequest(tableName, key);
-                                var getItemResponse = await client.GetItemAsync(getItemRequest);
-                                body.data = getItemResponse.Item["data"].S;
-                                break;
+                                case "GET":
+                                    {
+                                        var getItemRequest = new GetItemRequest(tableName, key);
+                                        var getItemResponse = await client.GetItemAsync(getItemRequest);
+                                        body.data = getItemResponse.Item["data"].S;
+                                        break;
+                                    }
+                                case "PUT":
+                                    {
+                                        var item = key.ToDictionary(x => x.Key, x => x.Value);
+                                        item.Add("data", new AttributeValue { S = request.body });
+                                        var putItemRequest = new PutItemRequest(tableName, item);
+                                        var putItemResponse = await client.PutItemAsync(putItemRequest);
+                                        body.data = putItemResponse;
+                                        break;
+                                    }
+                                default: break;
                             }
-                            case "PUT":
-                            {
-                                var item = key.ToDictionary(x => x.Key, x => x.Value);
-                                item.Add("data", new AttributeValue { S = request.body });
-                                var putItemRequest = new PutItemRequest(tableName, item);
-                                var putItemResponse = await client.PutItemAsync(putItemRequest);
-                                body.data = putItemResponse;
-                                break;
-                            }
-                            default: break;
+                            break;
                         }
-                        break;
+
+                    case "/sea-turtles":
+                        {
+                            switch (httpMethod)
+                            {
+                                case "GET":
+                                    {
+                                        var data = new List<string>();
+
+                                        var hashKey = new AttributeValue { S = $"ORGANIZATION#{organizationId}" };
+
+                                        var condition = new Condition
+                                        {
+                                            ComparisonOperator = "BEGINS_WITH",
+                                            AttributeValueList = new List<AttributeValue>
+                                            {
+                                                new AttributeValue { S = "SEA_TURTLE#" }
+                                            }
+                                        };
+
+                                        // Create the key conditions from hashKey and condition
+                                        var keyConditions = new Dictionary<string, Condition>
+                                        {
+                                            // Hash key condition. ComparisonOperator must be "EQ".
+                                            {
+                                                "PK",
+                                                new Condition
+                                                {
+                                                    ComparisonOperator = "EQ",
+                                                    AttributeValueList = new List<AttributeValue> { hashKey }
+                                                }
+                                            },
+                                            // Range key condition
+                                            {
+                                                "SK",
+                                                condition
+                                            }
+                                        };
+
+                                        // Define marker variable
+                                        Dictionary<string, AttributeValue> startKey = null;
+
+                                        do
+                                        {
+                                            var queryRequest = new QueryRequest
+                                            {
+                                                TableName = tableName,
+                                                ExclusiveStartKey = startKey,
+                                                KeyConditions = keyConditions
+                                            };
+
+                                            var queryResponse = await client.QueryAsync(queryRequest);
+
+                                            var items = queryResponse.Items;
+                                            foreach (var item in items)
+                                            {
+                                                foreach (var keyValuePair in item)
+                                                {
+                                                    if (keyValuePair.Key == "data")
+                                                    {
+                                                        var dataValue = keyValuePair.Value.S;
+                                                        data.Add(dataValue);
+                                                    }
+                                                }
+                                            }
+
+                                            // Update marker variable
+                                            startKey = queryResponse.LastEvaluatedKey;
+                                        } while (startKey != null && startKey.Count > 0);
+
+                                        body.data = data;
+                                        break;
+                                    }
+                                default: break;
+                            }
+                            break;
+                        }
+
+                    case "/sea-turtles/{seaTurtleId}":
+                        {
+                            var seaTurtleId = request.pathParameters["seaTurtleId"];
+                            var key = new Dictionary<string, AttributeValue>
+                                {
+                                    { "PK", new AttributeValue($"ORGANIZATION#{organizationId}") },
+                                    { "SK", new AttributeValue($"SEA_TURTLE#{seaTurtleId}") },
+                                };
+                            switch (httpMethod)
+                            {
+                                case "GET":
+                                    {
+                                        var getItemRequest = new GetItemRequest(tableName, key);
+                                        var getItemResponse = await client.GetItemAsync(getItemRequest);
+                                        body.data = getItemResponse.Item["data"].S;
+                                        break;
+                                    }
+                                case "PUT":
+                                    {
+                                        var item = key.ToDictionary(x => x.Key, x => x.Value);
+                                        item.Add("data", new AttributeValue { S = request.body });
+                                        var putItemRequest = new PutItemRequest(tableName, item);
+                                        var putItemResponse = await client.PutItemAsync(putItemRequest);
+                                        body.data = putItemResponse;
+                                        break;
+                                    }
+                                case "DELETE":
+                                    {
+                                        var deleteItemRequest = new DeleteItemRequest(tableName, key);
+                                        var deleteItemResponse = await client.DeleteItemAsync(deleteItemRequest);
+                                        body.data = deleteItemResponse;
+                                        break;
+                                    }
+                                default: break;
+                            }
+                            break;
+                        }
+
+                    case "/sea-turtles/{seaTurtleId}/sea-turtle-tags":
+                        {
+                            var seaTurtleId = request.pathParameters["seaTurtleId"];
+                            switch (httpMethod)
+                            {
+                                case "GET":
+                                    {
+                                        var data = new List<string>();
+
+                                        var hashKey = new AttributeValue { S = $"SEA_TURTLE#{seaTurtleId}" };
+
+                                        var condition = new Condition
+                                        {
+                                            ComparisonOperator = "BEGINS_WITH",
+                                            AttributeValueList = new List<AttributeValue>
+                                            {
+                                                new AttributeValue { S = "SEA_TURTLE_TAG#" }
+                                            }
+                                        };
+
+                                        // Create the key conditions from hashKey and condition
+                                        var keyConditions = new Dictionary<string, Condition>
+                                        {
+                                            // Hash key condition. ComparisonOperator must be "EQ".
+                                            {
+                                                "PK",
+                                                new Condition
+                                                {
+                                                    ComparisonOperator = "EQ",
+                                                    AttributeValueList = new List<AttributeValue> { hashKey }
+                                                }
+                                            },
+                                            // Range key condition
+                                            {
+                                                "SK",
+                                                condition
+                                            }
+                                        };
+
+                                        // Define marker variable
+                                        Dictionary<string, AttributeValue> startKey = null;
+
+                                        do
+                                        {
+                                            var queryRequest = new QueryRequest
+                                            {
+                                                TableName = tableName,
+                                                ExclusiveStartKey = startKey,
+                                                KeyConditions = keyConditions
+                                            };
+
+                                            var queryResponse = await client.QueryAsync(queryRequest);
+
+                                            var items = queryResponse.Items;
+                                            foreach (var item in items)
+                                            {
+                                                foreach (var keyValuePair in item)
+                                                {
+                                                    if (keyValuePair.Key == "data")
+                                                    {
+                                                        var dataValue = keyValuePair.Value.S;
+                                                        data.Add(dataValue);
+                                                    }
+                                                }
+                                            }
+
+                                            // Update marker variable
+                                            startKey = queryResponse.LastEvaluatedKey;
+                                        } while (startKey != null && startKey.Count > 0);
+
+                                        body.data = data;
+                                        break;
+                                    }
+                                default: break;
+                            }
+                            break;
+                        }
+
+                    case "/sea-turtles/{seaTurtleId}/sea-turtle-tags/{seaTurtleTagId}":
+                        {
+                            var seaTurtleId = request.pathParameters["seaTurtleId"];
+                            var seaTurtleTagId = request.pathParameters["seaTurtleTagId"];
+                            var key = new Dictionary<string, AttributeValue>
+                                {
+                                    { "PK", new AttributeValue($"SEA_TURTLE#{seaTurtleId}") },
+                                    { "SK", new AttributeValue($"SEA_TURTLE_TAG#{seaTurtleTagId}") },
+                                };
+                            switch (httpMethod)
+                            {
+                                case "GET":
+                                    {
+                                        var getItemRequest = new GetItemRequest(tableName, key);
+                                        var getItemResponse = await client.GetItemAsync(getItemRequest);
+                                        body.data = getItemResponse.Item["data"].S;
+                                        break;
+                                    }
+                                case "PUT":
+                                    {
+                                        var item = key.ToDictionary(x => x.Key, x => x.Value);
+                                        item.Add("data", new AttributeValue { S = request.body });
+                                        var putItemRequest = new PutItemRequest(tableName, item);
+                                        var putItemResponse = await client.PutItemAsync(putItemRequest);
+                                        //body.data = putItemResponse;
+                                        body.data = request;
+                                        break;
+                                    }
+                                case "DELETE":
+                                    {
+                                        var deleteItemRequest = new DeleteItemRequest(tableName, key);
+                                        var deleteItemResponse = await client.DeleteItemAsync(deleteItemRequest);
+                                        body.data = deleteItemResponse;
+                                        break;
+                                    }
+                                default: break;
+                            }
+                            break;
+                        }
 
                     default: break;
                 }

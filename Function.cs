@@ -2,9 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.IO;
-using System.Linq;
-using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
@@ -74,7 +71,6 @@ namespace RosterApiLambda
             }
 
             var jwt = request.headers["jwt"];
-
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
 
             if (jwtSecurityTokenHandler.CanReadToken(jwt))
@@ -133,287 +129,190 @@ namespace RosterApiLambda
 
         public async Task<RosterResponseBody> DoData(string organizationId, RosterRequest request)
         {
-            var body = new RosterResponseBody();
+            string pk;
+            string sk;
+            var errorMessage = $"ERROR in {nameof(Function.DoData)}:  Unexpected 'httpMethod' value of '{request.httpMethod}' for resource '{request.resource}'";
 
-            var resource = request.resource;
-            var httpMethod = request.httpMethod;
+            var body = new RosterResponseBody
+            {
+                message = $"organizationId == {organizationId}"
+            };
 
-            var tableName = $"roster-table-{organizationId}";
+            var dataHelper = new DataHelper(organizationId);
 
             using (var client = new AmazonDynamoDBClient())
             {
-                switch (resource)
+                switch (request.resource)
                 {
                     case "/organizations/{organizationId}":
+                        pk = $"ORGANIZATION#{organizationId}";
+                        sk = "ORGANIZATION";
+                        body.data = request.httpMethod switch
                         {
-                            var key = new Dictionary<string, AttributeValue>
-                                {
-                                    { "PK", new AttributeValue($"ORGANIZATION#{organizationId}") },
-                                    { "SK", new AttributeValue("ORGANIZATION") }
-                                };
-                            switch (httpMethod)
-                            {
-                                case "GET":
-                                    {
-                                        var getItemRequest = new GetItemRequest(tableName, key);
-                                        var getItemResponse = await client.GetItemAsync(getItemRequest);
-                                        body.data = getItemResponse.Item["data"].S;
-                                        break;
-                                    }
-                                case "PUT":
-                                    {
-                                        var item = key.ToDictionary(x => x.Key, x => x.Value);
-                                        item.Add("data", new AttributeValue { S = request.body });
-                                        var putItemRequest = new PutItemRequest(tableName, item);
-                                        var putItemResponse = await client.PutItemAsync(putItemRequest);
-                                        body.data = putItemResponse;
-                                        break;
-                                    }
-                                default: break;
-                            }
-                            break;
-                        }
+                            "GET" => await dataHelper.GetItemAsync(pk, sk),
+                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
 
                     case "/sea-turtles":
+                        pk = $"ORGANIZATION#{organizationId}";
+                        sk = "SEA_TURTLE#";
+                        body.data = request.httpMethod switch
                         {
-                            switch (httpMethod)
-                            {
-                                case "GET":
-                                    {
-                                        var data = new List<string>();
-
-                                        var hashKey = new AttributeValue { S = $"ORGANIZATION#{organizationId}" };
-
-                                        var condition = new Condition
-                                        {
-                                            ComparisonOperator = "BEGINS_WITH",
-                                            AttributeValueList = new List<AttributeValue>
-                                            {
-                                                new AttributeValue { S = "SEA_TURTLE#" }
-                                            }
-                                        };
-
-                                        // Create the key conditions from hashKey and condition
-                                        var keyConditions = new Dictionary<string, Condition>
-                                        {
-                                            // Hash key condition. ComparisonOperator must be "EQ".
-                                            {
-                                                "PK",
-                                                new Condition
-                                                {
-                                                    ComparisonOperator = "EQ",
-                                                    AttributeValueList = new List<AttributeValue> { hashKey }
-                                                }
-                                            },
-                                            // Range key condition
-                                            {
-                                                "SK",
-                                                condition
-                                            }
-                                        };
-
-                                        // Define marker variable
-                                        Dictionary<string, AttributeValue> startKey = null;
-
-                                        do
-                                        {
-                                            var queryRequest = new QueryRequest
-                                            {
-                                                TableName = tableName,
-                                                ExclusiveStartKey = startKey,
-                                                KeyConditions = keyConditions
-                                            };
-
-                                            var queryResponse = await client.QueryAsync(queryRequest);
-
-                                            var items = queryResponse.Items;
-                                            foreach (var item in items)
-                                            {
-                                                foreach (var keyValuePair in item)
-                                                {
-                                                    if (keyValuePair.Key == "data")
-                                                    {
-                                                        var dataValue = keyValuePair.Value.S;
-                                                        data.Add(dataValue);
-                                                    }
-                                                }
-                                            }
-
-                                            // Update marker variable
-                                            startKey = queryResponse.LastEvaluatedKey;
-                                        } while (startKey != null && startKey.Count > 0);
-
-                                        body.data = data;
-                                        break;
-                                    }
-                                default: break;
-                            }
-                            break;
-                        }
+                            "GET" => await dataHelper.QueryAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
 
                     case "/sea-turtles/{seaTurtleId}":
+                        pk = $"ORGANIZATION#{organizationId}";
+                        sk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
+                        body.data = request.httpMethod switch
                         {
-                            var seaTurtleId = request.pathParameters["seaTurtleId"];
-                            var key = new Dictionary<string, AttributeValue>
-                                {
-                                    { "PK", new AttributeValue($"ORGANIZATION#{organizationId}") },
-                                    { "SK", new AttributeValue($"SEA_TURTLE#{seaTurtleId}") },
-                                };
-                            switch (httpMethod)
-                            {
-                                case "GET":
-                                    {
-                                        var getItemRequest = new GetItemRequest(tableName, key);
-                                        var getItemResponse = await client.GetItemAsync(getItemRequest);
-                                        body.data = getItemResponse.Item["data"].S;
-                                        break;
-                                    }
-                                case "PUT":
-                                    {
-                                        var item = key.ToDictionary(x => x.Key, x => x.Value);
-                                        item.Add("data", new AttributeValue { S = request.body });
-                                        var putItemRequest = new PutItemRequest(tableName, item);
-                                        var putItemResponse = await client.PutItemAsync(putItemRequest);
-                                        body.data = putItemResponse;
-                                        break;
-                                    }
-                                case "DELETE":
-                                    {
-                                        var deleteItemRequest = new DeleteItemRequest(tableName, key);
-                                        var deleteItemResponse = await client.DeleteItemAsync(deleteItemRequest);
-                                        body.data = deleteItemResponse;
-                                        break;
-                                    }
-                                default: break;
-                            }
-                            break;
-                        }
+                            "GET" => await dataHelper.GetItemAsync(pk, sk),
+                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
+                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
 
                     case "/sea-turtles/{seaTurtleId}/sea-turtle-tags":
+                        pk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
+                        sk = "SEA_TURTLE_TAG#";
+                        body.data = request.httpMethod switch
                         {
-                            var seaTurtleId = request.pathParameters["seaTurtleId"];
-                            switch (httpMethod)
-                            {
-                                case "GET":
-                                    {
-                                        var data = new List<string>();
-
-                                        var hashKey = new AttributeValue { S = $"SEA_TURTLE#{seaTurtleId}" };
-
-                                        var condition = new Condition
-                                        {
-                                            ComparisonOperator = "BEGINS_WITH",
-                                            AttributeValueList = new List<AttributeValue>
-                                            {
-                                                new AttributeValue { S = "SEA_TURTLE_TAG#" }
-                                            }
-                                        };
-
-                                        // Create the key conditions from hashKey and condition
-                                        var keyConditions = new Dictionary<string, Condition>
-                                        {
-                                            // Hash key condition. ComparisonOperator must be "EQ".
-                                            {
-                                                "PK",
-                                                new Condition
-                                                {
-                                                    ComparisonOperator = "EQ",
-                                                    AttributeValueList = new List<AttributeValue> { hashKey }
-                                                }
-                                            },
-                                            // Range key condition
-                                            {
-                                                "SK",
-                                                condition
-                                            }
-                                        };
-
-                                        // Define marker variable
-                                        Dictionary<string, AttributeValue> startKey = null;
-
-                                        do
-                                        {
-                                            var queryRequest = new QueryRequest
-                                            {
-                                                TableName = tableName,
-                                                ExclusiveStartKey = startKey,
-                                                KeyConditions = keyConditions
-                                            };
-
-                                            var queryResponse = await client.QueryAsync(queryRequest);
-
-                                            var items = queryResponse.Items;
-                                            foreach (var item in items)
-                                            {
-                                                foreach (var keyValuePair in item)
-                                                {
-                                                    if (keyValuePair.Key == "data")
-                                                    {
-                                                        var dataValue = keyValuePair.Value.S;
-                                                        data.Add(dataValue);
-                                                    }
-                                                }
-                                            }
-
-                                            // Update marker variable
-                                            startKey = queryResponse.LastEvaluatedKey;
-                                        } while (startKey != null && startKey.Count > 0);
-
-                                        body.data = data;
-                                        break;
-                                    }
-                                default: break;
-                            }
-                            break;
-                        }
+                            "GET" => await dataHelper.QueryAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
 
                     case "/sea-turtles/{seaTurtleId}/sea-turtle-tags/{seaTurtleTagId}":
+                        pk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
+                        sk = $"SEA_TURTLE_TAG#{request.pathParameters["seaTurtleTagId"]}";
+                        body.data = request.httpMethod switch
                         {
-                            var seaTurtleId = request.pathParameters["seaTurtleId"];
-                            var seaTurtleTagId = request.pathParameters["seaTurtleTagId"];
-                            var key = new Dictionary<string, AttributeValue>
-                                {
-                                    { "PK", new AttributeValue($"SEA_TURTLE#{seaTurtleId}") },
-                                    { "SK", new AttributeValue($"SEA_TURTLE_TAG#{seaTurtleTagId}") },
-                                };
-                            switch (httpMethod)
-                            {
-                                case "GET":
-                                    {
-                                        var getItemRequest = new GetItemRequest(tableName, key);
-                                        var getItemResponse = await client.GetItemAsync(getItemRequest);
-                                        body.data = getItemResponse.Item["data"].S;
-                                        break;
-                                    }
-                                case "PUT":
-                                    {
-                                        var item = key.ToDictionary(x => x.Key, x => x.Value);
-                                        item.Add("data", new AttributeValue { S = request.body });
-                                        var putItemRequest = new PutItemRequest(tableName, item);
-                                        var putItemResponse = await client.PutItemAsync(putItemRequest);
-                                        //body.data = putItemResponse;
-                                        body.data = request;
-                                        break;
-                                    }
-                                case "DELETE":
-                                    {
-                                        var deleteItemRequest = new DeleteItemRequest(tableName, key);
-                                        var deleteItemResponse = await client.DeleteItemAsync(deleteItemRequest);
-                                        body.data = deleteItemResponse;
-                                        break;
-                                    }
-                                default: break;
-                            }
-                            break;
-                        }
+                            "GET" => await dataHelper.GetItemAsync(pk, sk),
+                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
+                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/sea-turtles/{seaTurtleId}/sea-turtle-morphometrics":
+                        pk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
+                        sk = "SEA_TURTLE_MORPHOMETRIC#";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.QueryAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/sea-turtles/{seaTurtleId}/sea-turtle-morphometrics/{seaTurtleMorphometricId}":
+                        pk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
+                        sk = $"SEA_TURTLE_MORPHOMETRIC#{request.pathParameters["seaTurtleMorphometricId"]}";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.GetItemAsync(pk, sk),
+                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
+                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/holding-tanks":
+                        pk = $"ORGANIZATION#{organizationId}";
+                        sk = "HOLDING_TANK#";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.QueryAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/holding-tanks/{holdingTankId}":
+                        pk = $"ORGANIZATION#{organizationId}";
+                        sk = $"HOLDING_TANK#{request.pathParameters["holdingTankId"]}";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.GetItemAsync(pk, sk),
+                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
+                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/holding-tanks/{holdingTankId}/holding-tank-measurements":
+                        pk = $"HOLDING_TANK#{request.pathParameters["holdingTankId"]}";
+                        sk = "HOLDING_TANK_MEASUREMENT#";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.QueryAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/holding-tanks/{holdingTankId}/holding-tank-measurements/{holdingTankMeasurementId}":
+                        pk = $"HOLDING_TANK#{request.pathParameters["holdingTankId"]}";
+                        sk = $"HOLDING_TANK_MEASUREMENT#{request.pathParameters["holdingTankMeasurementId"]}";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.GetItemAsync(pk, sk),
+                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
+                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/hatchlings-events":
+                        pk = $"ORGANIZATION#{organizationId}";
+                        sk = "HATCHLINGS_EVENT#";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.QueryAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/hatchlings-events/{hatchlingsEventId}":
+                        pk = $"ORGANIZATION#{organizationId}";
+                        sk = $"HATCHLINGS_EVENT#{request.pathParameters["hatchlingsEventId"]}";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.GetItemAsync(pk, sk),
+                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
+                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/washbacks-events":
+                        pk = $"ORGANIZATION#{organizationId}";
+                        sk = "WASHBACKS_EVENT#";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.QueryAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
+
+                    case "/washbacks-events/{washbacksEventId}":
+                        pk = $"ORGANIZATION#{organizationId}";
+                        sk = $"WASHBACKS_EVENT#{request.pathParameters["washbacksEventId"]}";
+                        body.data = request.httpMethod switch
+                        {
+                            "GET" => await dataHelper.GetItemAsync(pk, sk),
+                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
+                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
+                            _ => throw new NotImplementedException(errorMessage),
+                        };
+                        break;
 
                     default: break;
                 }
-
-
             }
 
-            body.message = $"organizationId == {organizationId}";
 
             return body;
         }

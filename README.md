@@ -1,25 +1,8 @@
 # roster-api-lambda
 
-## Empty AWS Serverless Application Project
+## Setup
 
-This starter project consists of:
-* serverless.template - an AWS CloudFormation Serverless Application Model template file for declaring your Serverless functions and other AWS resources
-* Function.cs - class file containing the C# method mapped to the single function declared in the template file
-* aws-lambda-tools-defaults.json - default argument settings for use with Visual Studio and command line deployment tools for AWS
-
-You may also have a test project depending on the options selected.
-
-The generated project contains a Serverless template declaration for a single AWS Lambda function that will be exposed through Amazon API Gateway as a HTTP *Get* operation. Edit the template to customize the function or add more functions and other resources needed by your application, and edit the function code in Function.cs. You can then deploy your Serverless application.
-
-## Here are some steps to follow from Visual Studio:
-
-To deploy your Serverless application, right click the project in Solution Explorer and select *Publish to AWS Lambda*.
-
-To view your deployed application open the Stack View window by double-clicking the stack name shown beneath the AWS CloudFormation node in the AWS Explorer tree. The Stack View also displays the root URL to your published application.
-
-## Here are some steps to follow to get started from the command line:
-
-Once you have edited your template and code you can deploy your application using the [Amazon.Lambda.Tools Global Tool](https://github.com/aws/aws-extensions-for-dotnet-cli#aws-lambda-amazonlambdatools) from the command line.
+* [AWS Toolkit for Visual Studio 2017 and 2019](https://marketplace.visualstudio.com/items?itemName=AmazonWebServices.AWSToolkitforVisualStudio2017)
 
 Install Amazon.Lambda.Tools Global Tools if not already installed.
 ```
@@ -30,8 +13,36 @@ If already installed check if new version is available.
 ```
     dotnet tool update -g Amazon.Lambda.Tools
 ```
+## Deployment
 
-Deploy application
+### Build:  To build the .NET Core AWS Lambda function
+```
+    dotnet build
+```
+
+### Package:  To package a .NET Core AWS Lambda function and supporting files
+```
+    dotnet lambda package
+```
+
+### Deploy:  To update .NET Core AWS Lambda function
+```
+    dotnet lambda deploy-function --profile roster-admin-user --function-name roster-api-lambda --package C:\JPFiles\src\roster-api-lambda\bin\Debug\netcoreapp3.1\roster-api-lambda.zip
+```
+
+### This .bat file will run the build + package + deploy commands 
 ```
     ./run-all.bat
 ```
+
+----
+
+## PDF
+
+* [Why do I get an error saying that "use of extended features is no longer available"?](https://itextpdf.com/en/resources/faq/technical-support/itext-5-legacy/why-do-i-get-error-saying-use-extended-features-no)
+
+----
+
+## See also
+
+* [ROSTER on GitHub](https://github.com/jaypalexa/roster)

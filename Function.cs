@@ -1,72 +1,30 @@
 using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Threading.Tasks;
-using Amazon.DynamoDBv2;
-using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.Core;
 using iTextSharp.text.pdf;
 using Microsoft.IdentityModel.Tokens;
+using RosterApiLambda.Dtos;
+using RosterApiLambda.Handlers;
+using RosterApiLambda.Helpers;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
 
 namespace RosterApiLambda
 {
-    public class RosterRequest
-    {
-        public string resource { get; set; }                // ??? /root/child
-        public string httpMethod { get; set; }              // DELETE|GET|HEAD|OPTIONS|PATCH|POST|PUT
-        public Dictionary<string, string> headers { get; set; }                // { "headerName": "headerValue", ... }
-        public Dictionary<string, string> queryStringParameters { get; set; }  // { "key": "value", ... }
-        public Dictionary<string, string> pathParameters { get; set; }         // { "key": "value", ... }
-        public string body { get; set; }                    // JSON.stringified
-        public bool isBase64Encoded { get; set; }           // true|false
-    };
-
-    /* AWS LAMBDA INTEGRATION RESPONSE FORMAT
-      {
-        "cookies" : ["cookie1", "cookie2"]
-        "isBase64Encoded": true|false,
-        "statusCode": httpStatusCode,
-        "headers": { "headerName": "headerValue", ... },
-        "body": "Hello from Lambda!"
-      }   
-    */
-
-    public class RosterResponseBody
-    {
-        public string message { get; set; }
-        public object data { get; set; }
-    }
-
-    public class RosterResponse
-    {
-        public int statusCode { get; set; }
-        public RosterResponseBody body { get; set; }
-    }
-
     public class Function
     {
         public async Task<RosterResponse> FunctionHandler(RosterRequest request, ILambdaContext context)
         {
             LambdaLogger.Log($"REQUEST:  {request}");
 
-            var message = string.Empty;
-            object data = request;
+            var response = new RosterResponse();
 
-            var response = new RosterResponse
+            if (request.resource == "/wake-up")
             {
-                statusCode = 200,
-                body = new RosterResponseBody { data = data, message = message }
-            };
-
-            var resource = request.resource;
-
-            if (resource == "/wake-up")
-            {
-                response.body.message = $"{resource} at: {DateTime.Now.ToUniversalTime()}";
+                response.body.message = $"{request.resource} at: {DateTime.Now.ToUniversalTime()}";
                 return response;
             }
 
@@ -78,13 +36,13 @@ namespace RosterApiLambda
                 var decodedJwt = jwtSecurityTokenHandler.ReadJwtToken(jwt);
                 var organizationId = Convert.ToString(decodedJwt.Payload["custom:organizationId"]);
 
-                if (resource.StartsWith("/reports"))
+                if (request.resource.StartsWith("/reports"))
                 {
-                    response.body = DoReports(organizationId);
+                    response.body = HandleReportRequest(organizationId);
                 }
                 else
                 {
-                    response.body = await DoData(organizationId, request);
+                    response.body = await HandleDataRequest(organizationId, request);
                 }
             }
             else
@@ -92,12 +50,10 @@ namespace RosterApiLambda
                 throw new SecurityTokenValidationException("Unable to read JWT.");
             }
 
-            response.body.message = message;
-
             return response;
         }
 
-        public RosterResponseBody DoReports(string organizationId)
+        public RosterResponseBody HandleReportRequest(string organizationId)
         {
             var body = new RosterResponseBody();
 
@@ -127,192 +83,29 @@ namespace RosterApiLambda
             return body;
         }
 
-        public async Task<RosterResponseBody> DoData(string organizationId, RosterRequest request)
+        public async Task<RosterResponseBody> HandleDataRequest(string organizationId, RosterRequest request)
         {
-            string pk;
-            string sk;
-            var errorMessage = $"ERROR in {nameof(Function.DoData)}:  Unexpected 'httpMethod' value of '{request.httpMethod}' for resource '{request.resource}'";
+            var body = new RosterResponseBody();
 
-            var body = new RosterResponseBody
+            body.data = request.resource switch
             {
-                message = $"organizationId == {organizationId}"
+                "/organizations/{organizationId}" => await OrganizationHandler.Handle(organizationId, request),
+                "/sea-turtles" => await SeaTurtleHandler.Handle(organizationId, request),
+                "/sea-turtles/{seaTurtleId}" => await SeaTurtleHandler.Handle(organizationId, request),
+                "/sea-turtles/{seaTurtleId}/sea-turtle-tags" => await SeaTurtleTagHandler.Handle(organizationId, request),
+                "/sea-turtles/{seaTurtleId}/sea-turtle-tags/{seaTurtleTagId}" => await SeaTurtleTagHandler.Handle(organizationId, request),
+                "/sea-turtles/{seaTurtleId}/sea-turtle-morphometrics" => await SeaTurtleMorphometricHandler.Handle(organizationId, request),
+                "/sea-turtles/{seaTurtleId}/sea-turtle-morphometrics/{seaTurtleMorphometricId}" => await SeaTurtleMorphometricHandler.Handle(organizationId, request),
+                "/holding-tanks" => await HoldingTankHandler.Handle(organizationId, request),
+                "/holding-tanks/{holdingTankId}" => await HoldingTankHandler.Handle(organizationId, request),
+                "/holding-tanks/{holdingTankId}/holding-tank-measurements" => await HoldingTankMeasurementHandler.Handle(organizationId, request),
+                "/holding-tanks/{holdingTankId}/holding-tank-measurements/{holdingTankMeasurementId}" => await HoldingTankMeasurementHandler.Handle(organizationId, request),
+                "/hatchlings-events" => await HatchlingsEventHandler.Handle(organizationId, request),
+                "/hatchlings-events/{hatchlingsEventId}" => await HatchlingsEventHandler.Handle(organizationId, request),
+                "/washbacks-events" => await WashbacksEventHandler.Handle(organizationId, request),
+                "/washbacks-events/{washbacksEventId}" => await WashbacksEventHandler.Handle(organizationId, request),
+                _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidResource(request.resource)),
             };
-
-            var dataHelper = new DataHelper(organizationId);
-
-            using (var client = new AmazonDynamoDBClient())
-            {
-                switch (request.resource)
-                {
-                    case "/organizations/{organizationId}":
-                        pk = $"ORGANIZATION#{organizationId}";
-                        sk = "ORGANIZATION";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.GetItemAsync(pk, sk),
-                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/sea-turtles":
-                        pk = $"ORGANIZATION#{organizationId}";
-                        sk = "SEA_TURTLE#";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.QueryAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/sea-turtles/{seaTurtleId}":
-                        pk = $"ORGANIZATION#{organizationId}";
-                        sk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.GetItemAsync(pk, sk),
-                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
-                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/sea-turtles/{seaTurtleId}/sea-turtle-tags":
-                        pk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
-                        sk = "SEA_TURTLE_TAG#";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.QueryAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/sea-turtles/{seaTurtleId}/sea-turtle-tags/{seaTurtleTagId}":
-                        pk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
-                        sk = $"SEA_TURTLE_TAG#{request.pathParameters["seaTurtleTagId"]}";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.GetItemAsync(pk, sk),
-                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
-                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/sea-turtles/{seaTurtleId}/sea-turtle-morphometrics":
-                        pk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
-                        sk = "SEA_TURTLE_MORPHOMETRIC#";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.QueryAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/sea-turtles/{seaTurtleId}/sea-turtle-morphometrics/{seaTurtleMorphometricId}":
-                        pk = $"SEA_TURTLE#{request.pathParameters["seaTurtleId"]}";
-                        sk = $"SEA_TURTLE_MORPHOMETRIC#{request.pathParameters["seaTurtleMorphometricId"]}";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.GetItemAsync(pk, sk),
-                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
-                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/holding-tanks":
-                        pk = $"ORGANIZATION#{organizationId}";
-                        sk = "HOLDING_TANK#";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.QueryAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/holding-tanks/{holdingTankId}":
-                        pk = $"ORGANIZATION#{organizationId}";
-                        sk = $"HOLDING_TANK#{request.pathParameters["holdingTankId"]}";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.GetItemAsync(pk, sk),
-                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
-                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/holding-tanks/{holdingTankId}/holding-tank-measurements":
-                        pk = $"HOLDING_TANK#{request.pathParameters["holdingTankId"]}";
-                        sk = "HOLDING_TANK_MEASUREMENT#";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.QueryAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/holding-tanks/{holdingTankId}/holding-tank-measurements/{holdingTankMeasurementId}":
-                        pk = $"HOLDING_TANK#{request.pathParameters["holdingTankId"]}";
-                        sk = $"HOLDING_TANK_MEASUREMENT#{request.pathParameters["holdingTankMeasurementId"]}";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.GetItemAsync(pk, sk),
-                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
-                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/hatchlings-events":
-                        pk = $"ORGANIZATION#{organizationId}";
-                        sk = "HATCHLINGS_EVENT#";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.QueryAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/hatchlings-events/{hatchlingsEventId}":
-                        pk = $"ORGANIZATION#{organizationId}";
-                        sk = $"HATCHLINGS_EVENT#{request.pathParameters["hatchlingsEventId"]}";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.GetItemAsync(pk, sk),
-                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
-                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/washbacks-events":
-                        pk = $"ORGANIZATION#{organizationId}";
-                        sk = "WASHBACKS_EVENT#";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.QueryAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    case "/washbacks-events/{washbacksEventId}":
-                        pk = $"ORGANIZATION#{organizationId}";
-                        sk = $"WASHBACKS_EVENT#{request.pathParameters["washbacksEventId"]}";
-                        body.data = request.httpMethod switch
-                        {
-                            "GET" => await dataHelper.GetItemAsync(pk, sk),
-                            "PUT" => await dataHelper.PutItemAsync(pk, sk, request.body),
-                            "DELETE" => await dataHelper.DeleteItemAsync(pk, sk),
-                            _ => throw new NotImplementedException(errorMessage),
-                        };
-                        break;
-
-                    default: break;
-                }
-            }
-
 
             return body;
         }

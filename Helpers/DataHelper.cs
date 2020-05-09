@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
-namespace RosterApiLambda
+namespace RosterApiLambda.Helpers
 {
     public class DataHelper
     {
@@ -34,7 +34,7 @@ namespace RosterApiLambda
             }
         };
 
-        async public Task<object> QueryAsync(string pk, string sk)
+        async public Task<List<string>> QueryAsync(string pk, string sk)
         {
             var data = new List<string>();
 
@@ -75,7 +75,7 @@ namespace RosterApiLambda
             }
         }
 
-        async public Task<object> GetItemAsync(string pk, string sk)
+        async public Task<string> GetItemAsync(string pk, string sk)
         {
             using (var client = new AmazonDynamoDBClient())
             {
@@ -86,7 +86,7 @@ namespace RosterApiLambda
             }
         }
 
-        async public Task<object> PutItemAsync(string pk, string sk, string body)
+        async public Task<PutItemResponse> PutItemAsync(string pk, string sk, string body)
         {
             using (var client = new AmazonDynamoDBClient())
             {
@@ -99,7 +99,7 @@ namespace RosterApiLambda
             }
         }
 
-        async public Task<object> DeleteItemAsync(string pk, string sk)
+        async public Task<DeleteItemResponse> DeleteItemAsync(string pk, string sk)
         {
             using (var client = new AmazonDynamoDBClient())
             {

@@ -57,24 +57,10 @@ namespace RosterApiLambda
         {
             var fileName = reportId switch
             {
-                "DisorientationIncidentForm" => "MASTER - Disorientation Incident Report form.master.pdf",
-                "DisorientationIncidentFormDirections" => "MASTER - Disorientation Incident Report form directions.master.pdf",
-                "EducationalPresentationsUsingTurtles" => "MASTER - Educational Presentation form.master.pdf",
-                "MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Hatchlings.master.pdf",
-                "MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Washbacks.master.pdf",
-                "MarineTurtleHoldingFacilityQuarterlyReport" => "MASTER - Marine Turtle Holding Facility Quarterly Report.master.pdf",
-                "MonitoringforBeachRestorationProjects" => "MASTER - Beach Restoration Project Monitoring.master.pdf",
-                "NecropsyReportForm" => "MASTER - Necropsy form.master.pdf",
-                "NighttimePublicHatchlingRelease" => "MASTER - Nighttime Public Hatchling Release form.master.pdf",
-                "ObstructedNestingAttemptForm" => "MASTER - Obstructed Nesting Attempt Report form.master.pdf",
-                "ObstructedNestingAttemptFormDirections" => "MASTER - Obstructed Nesting Attempt Report form directions.master.pdf",
-                "PapillomaDocumentationForm" => "MASTER - Papilloma form.master.pdf",
-                "PublicTurtleWatchScheduleForm" => "MASTER - Public Turtle Watch Schedule form.master.pdf",
-                "PublicTurtleWatchSummaryForm" => "MASTER - Public Turtle Watch Summary form.master.pdf",
-                "StrandingandSalvageForm" => "MASTER - Stranding and Salvage form.master.pdf",
-                "TaggingDataForm" => "MASTER - Tagging Data form.master.pdf",
-                "TagRequestForm" => "MASTER - Tag Request form.master.pdf",
-                "TurtleTransferForm" => "MASTER - Turtle Transfer form.master.pdf",
+                "MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Hatchlings.pdf",
+                "MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Washbacks.pdf",
+                "MarineTurtleHoldingFacilityQuarterlyReport" => "MASTER - Marine Turtle Holding Facility Quarterly Report.pdf",
+                "TaggingDataForm" => "MASTER - Tagging Data form.pdf",
 
                 _ => throw new NotImplementedException(),
             };

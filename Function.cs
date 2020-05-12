@@ -38,7 +38,7 @@ namespace RosterApiLambda
 
                 if (request.resource.StartsWith("/reports"))
                 {
-                    response.body = HandleReportRequest(organizationId);
+                    response.body = HandleReportRequest(organizationId, request);
                 }
                 else
                 {
@@ -53,34 +53,72 @@ namespace RosterApiLambda
             return response;
         }
 
-        public RosterResponseBody HandleReportRequest(string organizationId)
+        public string GetMasterReportFileName(string reportId)
         {
-            var body = new RosterResponseBody();
+            var fileName = reportId switch
+            {
+                "DisorientationIncidentForm" => "MASTER - Disorientation Incident Report form.master.pdf",
+                "DisorientationIncidentFormDirections" => "MASTER - Disorientation Incident Report form directions.master.pdf",
+                "EducationalPresentationsUsingTurtles" => "MASTER - Educational Presentation form.master.pdf",
+                "MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Hatchlings.master.pdf",
+                "MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Washbacks.master.pdf",
+                "MarineTurtleHoldingFacilityQuarterlyReport" => "MASTER - Marine Turtle Holding Facility Quarterly Report.master.pdf",
+                "MonitoringforBeachRestorationProjects" => "MASTER - Beach Restoration Project Monitoring.master.pdf",
+                "NecropsyReportForm" => "MASTER - Necropsy form.master.pdf",
+                "NighttimePublicHatchlingRelease" => "MASTER - Nighttime Public Hatchling Release form.master.pdf",
+                "ObstructedNestingAttemptForm" => "MASTER - Obstructed Nesting Attempt Report form.master.pdf",
+                "ObstructedNestingAttemptFormDirections" => "MASTER - Obstructed Nesting Attempt Report form directions.master.pdf",
+                "PapillomaDocumentationForm" => "MASTER - Papilloma form.master.pdf",
+                "PublicTurtleWatchScheduleForm" => "MASTER - Public Turtle Watch Schedule form.master.pdf",
+                "PublicTurtleWatchSummaryForm" => "MASTER - Public Turtle Watch Summary form.master.pdf",
+                "StrandingandSalvageForm" => "MASTER - Stranding and Salvage form.master.pdf",
+                "TaggingDataForm" => "MASTER - Tagging Data form.master.pdf",
+                "TagRequestForm" => "MASTER - Tag Request form.master.pdf",
+                "TurtleTransferForm" => "MASTER - Turtle Transfer form.master.pdf",
+
+                _ => throw new NotImplementedException(),
+            };
 
             var basePath = AppDomain.CurrentDomain.BaseDirectory;
-            var fieldsReportName = Path.Combine(basePath, "test.pdf");
-            //var filledReportName = fieldsReportName.Replace("MASTER - ", "FILLED - ").Replace(".master.pdf", $" - {DateTime.Now:yyyyMMddHHmmss}.pdf");
-            var filledReportName = Path.Combine("/tmp", "test-filled.pdf");
 
-            var pdfReader = new PdfReader(fieldsReportName);
-            var fs = new FileStream(filledReportName, FileMode.Create);
+            return Path.Combine(basePath, "pdf", fileName);
+        }
 
-            var pdfStamper = new PdfStamper(pdfReader, fs, '\0', true);
-            var acroFields = pdfStamper.AcroFields;
-            acroFields.SetField("txtTurtlePermitNumber", "JPA PERMIT NUMBER");
+        public RosterResponseBody HandleReportRequest(string organizationId, RosterRequest request)
+        {
+            request.pathParameters.TryGetValue("reportId", out string reportId);
 
-            // pdfStamper.FormFlattening = true; // 'true' to make the PDF read-only
-            pdfStamper.Close();
-            pdfReader.Close();
+            var body = new RosterResponseBody();
 
-            var bytes = File.ReadAllBytes(filledReportName);
-
-            //var base64 = Convert.ToBase64String(bytes); // converting to base64 seems to corrupt (?) and gets wrapped in double quotes?
-            //LambdaLogger.Log(base64);
-
-            body.data = bytes;
-
+            var masterReportFileName = GetMasterReportFileName(reportId);
+            body.data = File.ReadAllBytes(masterReportFileName);
             return body;
+
+            //var basePath = AppDomain.CurrentDomain.BaseDirectory;
+
+            //var fieldsReportName = Path.Combine(basePath, "pdf", "test.pdf");
+            ////var filledReportName = fieldsReportName.Replace("MASTER - ", "FILLED - ").Replace(".master.pdf", $" - {DateTime.Now:yyyyMMddHHmmss}.pdf");
+            //var filledReportName = Path.Combine("/tmp", "test-filled.pdf");
+
+            //var pdfReader = new PdfReader(fieldsReportName);
+            //var fs = new FileStream(filledReportName, FileMode.Create);
+
+            //var pdfStamper = new PdfStamper(pdfReader, fs, '\0', true);
+            //var acroFields = pdfStamper.AcroFields;
+            //acroFields.SetField("txtTurtlePermitNumber", "JPA PERMIT NUMBER");
+
+            //// pdfStamper.FormFlattening = true; // 'true' to make the PDF read-only
+            //pdfStamper.Close();
+            //pdfReader.Close();
+
+            //var bytes = File.ReadAllBytes(filledReportName);
+
+            ////var base64 = Convert.ToBase64String(bytes); // converting to base64 seems to corrupt (?) and gets wrapped in double quotes?
+            ////LambdaLogger.Log(base64);
+
+            //body.data = bytes;
+
+            //return body;
         }
 
         public async Task<RosterResponseBody> HandleDataRequest(string organizationId, RosterRequest request)

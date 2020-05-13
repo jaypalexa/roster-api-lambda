@@ -5,7 +5,6 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using iTextSharp.text.pdf;
-using Org.BouncyCastle.Asn1;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Extensions;
 using RosterApiLambda.Models;
@@ -39,6 +38,8 @@ namespace RosterApiLambda.ReportRequestHandlers
             IDictionary<string, object> requestBody = JsonSerializer.Deserialize<ExpandoObject>(request.body);
             var seaTurtleId = requestBody.GetString("seaTurtleId");
             var populateFacilityField = requestBody.GetBoolean("populateFacilityField");
+            var printSidOnForm = requestBody.GetBoolean("printSidOnForm");
+            var additionalRemarksOrDataOnBackOfForm = requestBody.GetBoolean("additionalRemarksOrDataOnBackOfForm");
 
             var seaTurtleService = new SeaTurtleService(organizationId);
             string seaTurtleAsJson = await seaTurtleService.GetSeaTurtle(seaTurtleId);
@@ -52,7 +53,15 @@ namespace RosterApiLambda.ReportRequestHandlers
             var pdfStamper = new PdfStamper(pdfReader, fs, '\0', false);
             var acroFields = pdfStamper.AcroFields;
 
-            acroFields.SetField("txtSID", $"SID:  {seaTurtle.sidNumber}");
+            if (printSidOnForm)
+            {
+                acroFields.SetField("txtSID", $"SID:  {seaTurtle.sidNumber}");
+            }
+            else
+            {
+                acroFields.SetField("txtSID", string.Empty);
+            }
+
             acroFields.SetField("txtSpecies", seaTurtle.species);
 
             // YYYY-MM-DD
@@ -145,6 +154,10 @@ namespace RosterApiLambda.ReportRequestHandlers
             var acquiredLongitude = !string.IsNullOrEmpty(seaTurtle.acquiredLongitude) ? $"; Longitude: {seaTurtle.acquiredLongitude}" : "";
             var captureLocation = $"{seaTurtle.acquiredFrom}{acquiredCounty}{acquiredLatitude}{acquiredLongitude}".TrimStart(' ', ';');
             acroFields.SetField("txtCaptureLocation", captureLocation);
+
+            acroFields.SetField("radAdditionalRemarksOnBack", additionalRemarksOrDataOnBackOfForm ? "Yes" : "No");
+
+            // =============================================================================
 
             pdfStamper.FormFlattening = true; // 'true' to make the PDF read-only
             pdfStamper.Close();

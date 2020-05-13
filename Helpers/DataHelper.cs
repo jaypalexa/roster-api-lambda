@@ -38,76 +38,68 @@ namespace RosterApiLambda.Helpers
         {
             var data = new List<string>();
 
-            using (var client = new AmazonDynamoDBClient())
+            using var client = new AmazonDynamoDBClient();
+            // Define marker variable
+            Dictionary<string, AttributeValue> startKey = null;
+
+            do
             {
-                // Define marker variable
-                Dictionary<string, AttributeValue> startKey = null;
-
-                do
+                var queryRequest = new QueryRequest
                 {
-                    var queryRequest = new QueryRequest
-                    {
-                        TableName = TABLE_NAME,
-                        ExclusiveStartKey = startKey,
-                        KeyConditions = GetKeyConditions(pk, sk)
-                    };
+                    TableName = TABLE_NAME,
+                    ExclusiveStartKey = startKey,
+                    KeyConditions = GetKeyConditions(pk, sk)
+                };
 
-                    var queryResponse = await client.QueryAsync(queryRequest);
+                var queryResponse = await client.QueryAsync(queryRequest);
 
-                    var items = queryResponse.Items;
-                    foreach (var item in items)
+                var items = queryResponse.Items;
+                foreach (var item in items)
+                {
+                    foreach (var keyValuePair in item)
                     {
-                        foreach (var keyValuePair in item)
+                        if (keyValuePair.Key == "data")
                         {
-                            if (keyValuePair.Key == "data")
-                            {
-                                var dataValue = keyValuePair.Value.S;
-                                data.Add(dataValue);
-                            }
+                            var dataValue = keyValuePair.Value.S;
+                            data.Add(dataValue);
                         }
                     }
+                }
 
-                    // Update marker variable
-                    startKey = queryResponse.LastEvaluatedKey;
-                } while (startKey != null && startKey.Count > 0);
+                // Update marker variable
+                startKey = queryResponse.LastEvaluatedKey;
+            } while (startKey != null && startKey.Count > 0);
 
-                return data;
-            }
+            return data;
         }
 
         async public Task<string> GetItemAsync(string pk, string sk)
         {
-            using (var client = new AmazonDynamoDBClient())
-            {
-                var key = GetKey(pk, sk);
-                var getItemRequest = new GetItemRequest(TABLE_NAME, key);
-                var getItemResponse = await client.GetItemAsync(getItemRequest);
-                return getItemResponse.Item["data"].S;
-            }
+            using var client = new AmazonDynamoDBClient();
+            var key = GetKey(pk, sk);
+            var getItemRequest = new GetItemRequest(TABLE_NAME, key);
+            var getItemResponse = await client.GetItemAsync(getItemRequest);
+            return getItemResponse.Item["data"].S;
         }
 
         async public Task<PutItemResponse> PutItemAsync(string pk, string sk, string body)
         {
-            using (var client = new AmazonDynamoDBClient())
-            {
-                var key = GetKey(pk, sk);
-                var item = key.ToDictionary(x => x.Key, x => x.Value);
-                item.Add("data", new AttributeValue { S = body });
-                var putItemRequest = new PutItemRequest(TABLE_NAME, item);
-                var putItemResponse = await client.PutItemAsync(putItemRequest);
-                return putItemResponse;
-            }
+            using var client = new AmazonDynamoDBClient();
+            var key = GetKey(pk, sk);
+            var item = key.ToDictionary(x => x.Key, x => x.Value);
+            item.Add("data", new AttributeValue { S = body });
+            var putItemRequest = new PutItemRequest(TABLE_NAME, item);
+            var putItemResponse = await client.PutItemAsync(putItemRequest);
+            return putItemResponse;
         }
 
         async public Task<DeleteItemResponse> DeleteItemAsync(string pk, string sk)
         {
-            using (var client = new AmazonDynamoDBClient())
-            {
-                var key = GetKey(pk, sk);
-                var deleteItemRequest = new DeleteItemRequest(TABLE_NAME, key);
-                var deleteItemResponse = await client.DeleteItemAsync(deleteItemRequest);
-                return deleteItemResponse;
-            }
+            using var client = new AmazonDynamoDBClient();
+            var key = GetKey(pk, sk);
+            var deleteItemRequest = new DeleteItemRequest(TABLE_NAME, key);
+            var deleteItemResponse = await client.DeleteItemAsync(deleteItemRequest);
+            return deleteItemResponse;
         }
 
     }

@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Threading.Tasks;
 using RosterApiLambda.Dtos;
-using RosterApiLambda.Handlers.Interfaces;
+using RosterApiLambda.DataRequestHandlers.Interfaces;
 using RosterApiLambda.Helpers;
 using RosterApiLambda.Services;
 
-namespace RosterApiLambda.Handlers
+namespace RosterApiLambda.DataRequestHandlers
 {
-    public class SeaTurtleMorphometricHandler : IHandler
+    public class SeaTurtleMorphometricDataRequestHandler : IDataRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

@@ -101,7 +101,6 @@ namespace RosterApiLambda.ReportRequestHandlers
             acroFields.SetField("txtSpecies", seaTurtle.species);
 
             string dateCaptured = seaTurtle.dateCaptured ?? seaTurtle.dateAcquired;
-            string dateRelinquished = seaTurtle.dateRelinquished;
 
             if (!string.IsNullOrEmpty(dateCaptured))
             {
@@ -110,11 +109,11 @@ namespace RosterApiLambda.ReportRequestHandlers
                 acroFields.SetField("txtDateCapturedYear", dateCaptured.Substring(0, 4));
             }
 
-            if (!string.IsNullOrEmpty(dateRelinquished))
+            if (!string.IsNullOrEmpty(seaTurtle.dateRelinquished))
             {
-                acroFields.SetField("txtDateReleasedDay", dateRelinquished.Substring(8, 2));
-                acroFields.SetField("txtDateReleasedMonth", dateRelinquished.Substring(5, 2));
-                acroFields.SetField("txtDateReleasedYear", dateRelinquished.Substring(0, 4));
+                acroFields.SetField("txtDateReleasedDay", seaTurtle.dateRelinquished.Substring(8, 2));
+                acroFields.SetField("txtDateReleasedMonth", seaTurtle.dateRelinquished.Substring(5, 2));
+                acroFields.SetField("txtDateReleasedYear", seaTurtle.dateRelinquished.Substring(0, 4));
             }
 
             acroFields.SetField("txtFlipperTagLeftFront", flipperTagLeftFront);
@@ -203,14 +202,37 @@ namespace RosterApiLambda.ReportRequestHandlers
             var releaseLocation = $"{seaTurtle.relinquishedTo}{relinquishedCounty}{relinquishedLatitude}{relinquishedLongitude}".TrimStart(' ', ';');
             acroFields.SetField("txtReleaseLocation", releaseLocation);
 
-            // useMorphometricsClosestTo
+            // If first string is greater than second string, it returns 1 else it returns -1.
+            var dateAcquired = string.IsNullOrWhiteSpace(seaTurtle.dateAcquired) ? "0000-00-00" : seaTurtle.dateAcquired;
+            var dateRelinquished = string.IsNullOrWhiteSpace(seaTurtle.dateRelinquished) ? "9999-99-99" : seaTurtle.dateRelinquished;
+            var closestMorphometric = new SeaTurtleMorphometricModel();
 
-            var targetDate = useMorphometricsClosestTo == "dateAcquired" ? seaTurtle.dateAcquired : seaTurtle.dateRelinquished;
+            if (useMorphometricsClosestTo == "dateAcquired")
+            {
+                // get first after acquired...
+                closestMorphometric = seaTurtleMorphometrics
+                    .Where(x => string.Compare(dateAcquired, x.dateMeasured) == -1)
+                    .OrderBy(x => x.dateMeasured)
+                    .FirstOrDefault();
 
-            var closestMorphometric = seaTurtleMorphometrics
-                .Where(x => string.Compare(targetDate, x.dateMeasured) == -1)
-                .OrderBy(x => x.dateMeasured)
-                .FirstOrDefault();
+                //...if none, try earliest date
+                closestMorphometric ??= seaTurtleMorphometrics
+                    .OrderBy(x => x.dateMeasured)
+                    .FirstOrDefault();
+            }
+            else //if (useMorphometricsClosestTo == "dateRelinquished")
+            {
+                // get first before relinquished...
+                closestMorphometric = seaTurtleMorphometrics
+                    .Where(x => string.Compare(dateRelinquished, x.dateMeasured) == 1)
+                    .OrderByDescending(x => x.dateMeasured)
+                    .FirstOrDefault();
+
+                //...if none, try latest date
+                closestMorphometric ??= seaTurtleMorphometrics
+                    .OrderByDescending(x => x.dateMeasured)
+                    .FirstOrDefault();
+            }
 
             if (closestMorphometric != null)
             {

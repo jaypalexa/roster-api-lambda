@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Dynamic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using iTextSharp.text.pdf;
@@ -24,14 +25,16 @@ namespace RosterApiLambda.ReportRequestHandlers
                 "TaggingDataForm" => "MASTER - Tagging Data form.pdf",
             */
 
+            var fileTimestamp = $"{DateTime.Now:yyyyMMddHHmmss} UTC";
+
             var baseMasterReportFileName = "MASTER - Tagging Data form.pdf";
             var basePath = AppDomain.CurrentDomain.BaseDirectory;
 
             var masterReportFileName = Path.Combine(basePath, "pdf", baseMasterReportFileName);
-            var filledReportFileName = Path.Combine("/tmp", baseMasterReportFileName.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {DateTime.Now:yyyyMMddHHmmss}.pdf"));
+            var filledReportFileName = Path.Combine("/tmp", baseMasterReportFileName.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp}.pdf"));
 
             var organizationService = new OrganizationService(organizationId);
-            string organizationAsJson = await organizationService.GetOrganization();
+            var organizationAsJson = await organizationService.GetOrganization();
             var organization = JsonSerializer.Deserialize<OrganizationModel>(organizationAsJson);
             var organizationInformation = $"{organization.organizationName} - {organization.phone} - {organization.emailAddress}";
 
@@ -40,32 +43,63 @@ namespace RosterApiLambda.ReportRequestHandlers
             var populateFacilityField = requestBody.GetBoolean("populateFacilityField");
             var printSidOnForm = requestBody.GetBoolean("printSidOnForm");
             var additionalRemarksOrDataOnBackOfForm = requestBody.GetBoolean("additionalRemarksOrDataOnBackOfForm");
+            var useMorphometricsClosestTo = requestBody.GetString("useMorphometricsClosestTo");
 
             var seaTurtleService = new SeaTurtleService(organizationId);
-            string seaTurtleAsJson = await seaTurtleService.GetSeaTurtle(seaTurtleId);
+            var seaTurtleAsJson = await seaTurtleService.GetSeaTurtle(seaTurtleId);
             var seaTurtle = JsonSerializer.Deserialize<SeaTurtleModel>(seaTurtleAsJson);
+
+            var seaTurtleTagService = new SeaTurtleTagService(organizationId, seaTurtleId);
+            var seaTurtleTagsAsJson = await seaTurtleTagService.GetSeaTurtleTags();
+            var seaTurtleTags = new List<SeaTurtleTagModel>();
+            foreach (var seaTurtleTagAsJson in seaTurtleTagsAsJson)
+            {
+                var seaTurtleTag = JsonSerializer.Deserialize<SeaTurtleTagModel>(seaTurtleTagAsJson);
+                seaTurtleTags.Add(seaTurtleTag);
+            }
+
+            var nonPitTags = seaTurtleTags.Where(x => x.tagType != "PIT" && !string.IsNullOrWhiteSpace(x.tagNumber));
+
+            var flipperTagLeftFront = string.Join(", ", nonPitTags.Where(x => x.location == "LFF").Select(x => x.tagNumber));
+            var flipperTagRightFront = string.Join(", ", nonPitTags.Where(x => x.location == "RFF").Select(x => x.tagNumber));
+            var flipperTagLeftRear = string.Join(", ", nonPitTags.Where(x => x.location == "LRF").Select(x => x.tagNumber));
+            var flipperTagRightRear = string.Join(", ", nonPitTags.Where(x => x.location == "RRF").Select(x => x.tagNumber));
+
+            var pitTags = seaTurtleTags.Where(x => x.tagType == "PIT");
+            var pitTagNumber = string.Join(", ", pitTags.Where(x => !string.IsNullOrWhiteSpace(x.tagNumber)).Select(x => x.tagNumber));
+            var pitTagLocation = string.Join(", ", pitTags.Where(x => !string.IsNullOrWhiteSpace(x.location)).Select(x => x.location));
+
+
+            var seaTurtleMorphometricService = new SeaTurtleMorphometricService(organizationId, seaTurtleId);
+            var seaTurtleMorphometricsAsJson = await seaTurtleMorphometricService.GetSeaTurtleMorphometrics();
+            var seaTurtleMorphometrics = new List<SeaTurtleMorphometricModel>();
+            foreach (var seaTurtleMorphometricAsJson in seaTurtleMorphometricsAsJson)
+            {
+                var seaTurtleMorphometric = JsonSerializer.Deserialize<SeaTurtleMorphometricModel>(seaTurtleMorphometricAsJson);
+                seaTurtleMorphometrics.Add(seaTurtleMorphometric);
+            }
+
+            //----------------------------------------------------------------------------------------------------
 
             var pdfReader = new PdfReader(masterReportFileName);
             pdfReader.RemoveUsageRights();
 
             var fs = new FileStream(filledReportFileName, FileMode.Create);
-
             var pdfStamper = new PdfStamper(pdfReader, fs, '\0', false);
+
+            var info = pdfReader.Info;
+            info["Title"] = baseMasterReportFileName.Replace("MASTER - ", "").Replace(".pdf", $" - {fileTimestamp}.pdf");
+            //info["Subject"] = "NEW SUBJECT";
+            //info["Keywords"] = "KEYWORD1, KEYWORD2";
+            //info["Creator"] = "NEW CREATOR";
+            //info["Author"] = "NEW AUTHOR";
+            pdfStamper.MoreInfo = info;
+
             var acroFields = pdfStamper.AcroFields;
 
-            if (printSidOnForm)
-            {
-                acroFields.SetField("txtSID", $"SID:  {seaTurtle.sidNumber}");
-            }
-            else
-            {
-                acroFields.SetField("txtSID", string.Empty);
-            }
-
+            acroFields.SetField("txtSID", printSidOnForm ? $"SID:  {seaTurtle.sidNumber}" : string.Empty);
             acroFields.SetField("txtSpecies", seaTurtle.species);
 
-            // YYYY-MM-DD
-            // 0123456789
             string dateCaptured = seaTurtle.dateCaptured ?? seaTurtle.dateAcquired;
             string dateRelinquished = seaTurtle.dateRelinquished;
 
@@ -82,6 +116,14 @@ namespace RosterApiLambda.ReportRequestHandlers
                 acroFields.SetField("txtDateReleasedMonth", dateRelinquished.Substring(5, 2));
                 acroFields.SetField("txtDateReleasedYear", dateRelinquished.Substring(0, 4));
             }
+
+            acroFields.SetField("txtFlipperTagLeftFront", flipperTagLeftFront);
+            acroFields.SetField("txtFlipperTagRightFront", flipperTagRightFront);
+            acroFields.SetField("txtFlipperTagLeftRear", flipperTagLeftRear);
+            acroFields.SetField("txtFlipperTagRightRear", flipperTagRightRear);
+
+            acroFields.SetField("txtPitTagNumber", pitTagNumber);
+            acroFields.SetField("txtPitTagLocation", pitTagLocation);
 
             if (seaTurtle.wasCarryingTagsWhenEnc)
             {
@@ -149,11 +191,147 @@ namespace RosterApiLambda.ReportRequestHandlers
                 acroFields.SetField("txtFacility", organizationInformation);
             }
 
-            var acquiredCounty = !string.IsNullOrEmpty(seaTurtle.acquiredCounty) ? $"; County: {seaTurtle.acquiredCounty}" : "";
-            var acquiredLatitude = !string.IsNullOrEmpty(seaTurtle.acquiredLatitude) ? $"; Latitude: {seaTurtle.acquiredLatitude}" : "";
-            var acquiredLongitude = !string.IsNullOrEmpty(seaTurtle.acquiredLongitude) ? $"; Longitude: {seaTurtle.acquiredLongitude}" : "";
+            var acquiredCounty = !string.IsNullOrEmpty(seaTurtle.acquiredCounty) ? $"; County: {seaTurtle.acquiredCounty}" : string.Empty;
+            var acquiredLatitude = !string.IsNullOrEmpty(seaTurtle.acquiredLatitude) ? $"; Latitude: {seaTurtle.acquiredLatitude}" : string.Empty;
+            var acquiredLongitude = !string.IsNullOrEmpty(seaTurtle.acquiredLongitude) ? $"; Longitude: {seaTurtle.acquiredLongitude}" : string.Empty;
             var captureLocation = $"{seaTurtle.acquiredFrom}{acquiredCounty}{acquiredLatitude}{acquiredLongitude}".TrimStart(' ', ';');
             acroFields.SetField("txtCaptureLocation", captureLocation);
+
+            var relinquishedCounty = !string.IsNullOrEmpty(seaTurtle.relinquishedCounty) ? $"; County: {seaTurtle.relinquishedCounty}" : string.Empty;
+            var relinquishedLatitude = !string.IsNullOrEmpty(seaTurtle.relinquishedLatitude) ? $"; Latitude: {seaTurtle.relinquishedLatitude}" : string.Empty;
+            var relinquishedLongitude = !string.IsNullOrEmpty(seaTurtle.relinquishedLongitude) ? $"; Longitude: {seaTurtle.relinquishedLongitude}" : string.Empty;
+            var releaseLocation = $"{seaTurtle.relinquishedTo}{relinquishedCounty}{relinquishedLatitude}{relinquishedLongitude}".TrimStart(' ', ';');
+            acroFields.SetField("txtReleaseLocation", releaseLocation);
+
+            // useMorphometricsClosestTo
+
+            var targetDate = useMorphometricsClosestTo == "dateAcquired" ? seaTurtle.dateAcquired : seaTurtle.dateRelinquished;
+
+            var closestMorphometric = seaTurtleMorphometrics
+                .Where(x => string.Compare(targetDate, x.dateMeasured) == -1)
+                .OrderBy(x => x.dateMeasured)
+                .FirstOrDefault();
+
+            if (closestMorphometric != null)
+            {
+                if (closestMorphometric.sclNotchNotchValue > 0)
+                {
+                    if (closestMorphometric.sclNotchNotchUnits == "cm")
+                    {
+                        acroFields.SetField("txtSclMinCm", Convert.ToString(closestMorphometric.sclNotchNotchValue));
+                    }
+                    else if (closestMorphometric.sclNotchNotchUnits == "in")
+                    {
+                        acroFields.SetField("txtSclMinIn", Convert.ToString(closestMorphometric.sclNotchNotchValue));
+                    }
+                }
+                if (closestMorphometric.sclNotchTipValue > 0)
+                {
+                    if (closestMorphometric.sclNotchTipUnits == "cm")
+                    {
+                        acroFields.SetField("txtSclNotchTipCm", Convert.ToString(closestMorphometric.sclNotchTipValue));
+                    }
+                    else if (closestMorphometric.sclNotchTipUnits == "in")
+                    {
+                        acroFields.SetField("txtSclNotchTipIn", Convert.ToString(closestMorphometric.sclNotchTipValue));
+                    }
+                }
+                if (closestMorphometric.scwValue > 0)
+                {
+                    if (closestMorphometric.scwUnits == "cm")
+                    {
+                        acroFields.SetField("txtScwCm", Convert.ToString(closestMorphometric.scwValue));
+                    }
+                    else if (closestMorphometric.scwUnits == "in")
+                    {
+                        acroFields.SetField("txtScwIn", Convert.ToString(closestMorphometric.scwValue));
+                    }
+                }
+                if (closestMorphometric.cclNotchNotchValue > 0)
+                {
+                    if (closestMorphometric.cclNotchNotchUnits == "cm")
+                    {
+                        acroFields.SetField("txtCclMinCm", Convert.ToString(closestMorphometric.cclNotchNotchValue));
+                    }
+                    else if (closestMorphometric.cclNotchNotchUnits == "in")
+                    {
+                        acroFields.SetField("txtCclMinIn", Convert.ToString(closestMorphometric.cclNotchNotchValue));
+                    }
+                }
+                if (closestMorphometric.cclNotchTipValue > 0)
+                {
+                    if (closestMorphometric.cclNotchTipUnits == "cm")
+                    {
+                        acroFields.SetField("txtCclNotchTipCm", Convert.ToString(closestMorphometric.cclNotchTipValue));
+                    }
+                    else if (closestMorphometric.cclNotchTipUnits == "in")
+                    {
+                        acroFields.SetField("txtCclNotchTipIn", Convert.ToString(closestMorphometric.cclNotchTipValue));
+                    }
+                }
+                if (closestMorphometric.ccwValue > 0)
+                {
+                    if (closestMorphometric.ccwUnits == "cm")
+                    {
+                        acroFields.SetField("txtCcwCm", Convert.ToString(closestMorphometric.ccwValue));
+                    }
+                    else if (closestMorphometric.ccwUnits == "in")
+                    {
+                        acroFields.SetField("txtCcwIn", Convert.ToString(closestMorphometric.ccwValue));
+                    }
+                }
+                if (closestMorphometric.weightValue > 0)
+                {
+                    if (closestMorphometric.weightUnits == "kg")
+                    {
+                        acroFields.SetField("txtWeightKg", Convert.ToString(closestMorphometric.weightValue));
+                    }
+                    else if (closestMorphometric.weightUnits == "lb")
+                    {
+                        acroFields.SetField("txtWeightLbs", Convert.ToString(closestMorphometric.weightValue));
+                    }
+                }
+            }
+
+            if (seaTurtle.inspectedForTagScars)
+            {
+                acroFields.SetField("radTagScars", "Yes");
+                acroFields.SetField("txtTagScars", seaTurtle.tagScarsLocated);
+            }
+            else
+            {
+                acroFields.SetField("radTagScars", "No");
+            }
+
+            if (seaTurtle.scannedForPitTags)
+            {
+                acroFields.SetField("radPitTags", "Yes");
+                acroFields.SetField("txtPitTags", seaTurtle.pitTagsScanFrequency);
+            }
+            else
+            {
+                acroFields.SetField("radPitTags", "No");
+            }
+
+            if (seaTurtle.scannedForMagneticWires)
+            {
+                acroFields.SetField("radMagneticWires", "Yes");
+                acroFields.SetField("txtMagneticWires", seaTurtle.magneticWiresLocated);
+            }
+            else
+            {
+                acroFields.SetField("radMagneticWires", "No");
+            }
+
+            if (seaTurtle.inspectedForLivingTags)
+            {
+                acroFields.SetField("radLivingTags", "Yes");
+                acroFields.SetField("txtLivingTags", seaTurtle.livingTagsLocated);
+            }
+            else
+            {
+                acroFields.SetField("radLivingTags", "No");
+            }
 
             acroFields.SetField("radAdditionalRemarksOnBack", additionalRemarksOrDataOnBackOfForm ? "Yes" : "No");
 

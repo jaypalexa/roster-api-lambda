@@ -44,7 +44,7 @@
         public string pitTagsScanFrequency { get; set; }
         public bool scannedForMagneticWires { get; set; }
         public string magneticWiresLocated { get; set; }
-        public string inspectedForLivingTags { get; set; }
+        public bool inspectedForLivingTags { get; set; }
         public string livingTagsLocated { get; set; }
         public string brochureComments { get; set; }
         public string brochureBackgroundColor { get; set; }

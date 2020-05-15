@@ -23,7 +23,7 @@ namespace RosterApiLambda
 
             if (request.resource == "/convert")
             {
-                ConversionHelper.DoConversion();
+                await ConversionHelper.DoConversion();
 
                 response.body.message = $"{request.resource} at: {DateTime.Now.ToUniversalTime()}";
                 return response;

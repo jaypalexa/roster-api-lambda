@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Threading.Tasks;
 using RosterApiLambda.Models;
 using RosterApiLambda.Services;
 
@@ -9,7 +10,7 @@ namespace RosterApiLambda.Helpers
 {
     public class ConversionHelper
     {
-        public static void DoConversion()
+        public static async Task DoConversion()
         {
             var organizationId = "b225dd24-1d37-4252-b989-e342a690968b";
 

@@ -21,6 +21,14 @@ namespace RosterApiLambda
 
             var response = new RosterResponse();
 
+            if (request.resource == "/convert")
+            {
+                ConversionHelper.DoConversion();
+
+                response.body.message = $"{request.resource} at: {DateTime.Now.ToUniversalTime()}";
+                return response;
+            }
+
             if (request.resource == "/wake-up")
             {
                 response.body.message = $"{request.resource} at: {DateTime.Now.ToUniversalTime()}";

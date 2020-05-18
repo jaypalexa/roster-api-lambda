@@ -4,6 +4,8 @@ using RosterApiLambda.Dtos;
 using RosterApiLambda.DataRequestHandlers.Interfaces;
 using RosterApiLambda.Helpers;
 using RosterApiLambda.Services;
+using RosterApiLambda.Models;
+using System.Text.Json;
 
 namespace RosterApiLambda.DataRequestHandlers
 {
@@ -25,7 +27,7 @@ namespace RosterApiLambda.DataRequestHandlers
                 "/washbacks-events/{washbacksEventId}" => request.httpMethod switch
                 {
                     "GET" => await washbacksEventService.GetWashbacksEvent(washbacksEventId),
-                    "PUT" => await washbacksEventService.SaveWashbacksEvent(washbacksEventId, request.body),
+                    "PUT" => await washbacksEventService.SaveWashbacksEvent(washbacksEventId, JsonSerializer.Deserialize<WashbacksEventModel>(request.body.GetRawText())),
                     "DELETE" => await washbacksEventService.DeleteWashbacksEvent(washbacksEventId),
                     _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidHttpMethodForResource(request.httpMethod, request.resource)),
                 },

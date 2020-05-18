@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
@@ -33,6 +34,45 @@ namespace RosterApiLambda.Helpers
                 } 
             }
         };
+
+        async public Task<List<T>> QueryAsync<T>(string pk, string sk)
+        {
+            var data = new List<T>();
+
+            using var client = new AmazonDynamoDBClient();
+            // Define marker variable
+            Dictionary<string, AttributeValue> startKey = null;
+
+            do
+            {
+                var queryRequest = new QueryRequest
+                {
+                    TableName = TABLE_NAME,
+                    ExclusiveStartKey = startKey,
+                    KeyConditions = GetKeyConditions(pk, sk)
+                };
+
+                var queryResponse = await client.QueryAsync(queryRequest);
+
+                var items = queryResponse.Items;
+                foreach (var item in items)
+                {
+                    foreach (var keyValuePair in item)
+                    {
+                        if (keyValuePair.Key == "data")
+                        {
+                            var dataValue = JsonSerializer.Deserialize<T>(keyValuePair.Value.S);
+                            data.Add(dataValue);
+                        }
+                    }
+                }
+
+                // Update marker variable
+                startKey = queryResponse.LastEvaluatedKey;
+            } while (startKey != null && startKey.Count > 0);
+
+            return data;
+        }
 
         async public Task<List<string>> QueryAsync(string pk, string sk)
         {
@@ -73,6 +113,16 @@ namespace RosterApiLambda.Helpers
             return data;
         }
 
+        async public Task<T> GetItemAsync<T>(string pk, string sk)
+        {
+            using var client = new AmazonDynamoDBClient();
+            var key = GetKey(pk, sk);
+            var getItemRequest = new GetItemRequest(TABLE_NAME, key);
+            var getItemResponse = await client.GetItemAsync(getItemRequest);
+            var item = JsonSerializer.Deserialize<T>(getItemResponse.Item["data"].S);
+            return item;
+        }
+
         async public Task<string> GetItemAsync(string pk, string sk)
         {
             using var client = new AmazonDynamoDBClient();
@@ -82,12 +132,12 @@ namespace RosterApiLambda.Helpers
             return getItemResponse.Item["data"].S;
         }
 
-        async public Task<PutItemResponse> PutItemAsync(string pk, string sk, string body)
+        async public Task<PutItemResponse> PutItemAsync<T>(string pk, string sk, T body)
         {
             using var client = new AmazonDynamoDBClient();
             var key = GetKey(pk, sk);
             var item = key.ToDictionary(x => x.Key, x => x.Value);
-            item.Add("data", new AttributeValue { S = body });
+            item.Add("data", new AttributeValue { S = JsonSerializer.Serialize(body) });
             var putItemRequest = new PutItemRequest(TABLE_NAME, item);
             var putItemResponse = await client.PutItemAsync(putItemRequest);
             return putItemResponse;

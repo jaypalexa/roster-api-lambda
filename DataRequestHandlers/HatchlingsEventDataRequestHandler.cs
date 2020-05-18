@@ -4,6 +4,8 @@ using RosterApiLambda.Dtos;
 using RosterApiLambda.DataRequestHandlers.Interfaces;
 using RosterApiLambda.Helpers;
 using RosterApiLambda.Services;
+using RosterApiLambda.Models;
+using System.Text.Json;
 
 namespace RosterApiLambda.DataRequestHandlers
 {
@@ -25,7 +27,7 @@ namespace RosterApiLambda.DataRequestHandlers
                 "/hatchlings-events/{hatchlingsEventId}" => request.httpMethod switch
                 {
                     "GET" => await hatchlingsEventService.GetHatchlingsEvent(hatchlingsEventId),
-                    "PUT" => await hatchlingsEventService.SaveHatchlingsEvent(hatchlingsEventId, request.body),
+                    "PUT" => await hatchlingsEventService.SaveHatchlingsEvent(hatchlingsEventId, JsonSerializer.Deserialize<HatchlingsEventModel>(request.body.GetRawText())),
                     "DELETE" => await hatchlingsEventService.DeleteHatchlingsEvent(hatchlingsEventId),
                     _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidHttpMethodForResource(request.httpMethod, request.resource)),
                 },

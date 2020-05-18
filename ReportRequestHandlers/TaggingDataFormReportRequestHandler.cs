@@ -34,11 +34,10 @@ namespace RosterApiLambda.ReportRequestHandlers
             var filledReportFileName = Path.Combine("/tmp", baseMasterReportFileName.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp}.pdf"));
 
             var organizationService = new OrganizationService(organizationId);
-            var organizationAsJson = await organizationService.GetOrganization();
-            var organization = JsonSerializer.Deserialize<OrganizationModel>(organizationAsJson);
+            var organization = await organizationService.GetOrganization();
             var organizationInformation = $"{organization.organizationName} - {organization.phone} - {organization.emailAddress}";
 
-            IDictionary<string, object> requestBody = JsonSerializer.Deserialize<ExpandoObject>(request.body);
+            IDictionary<string, object> requestBody = JsonSerializer.Deserialize<ExpandoObject>(request.body.GetRawText());
             var seaTurtleId = requestBody.GetString("seaTurtleId");
             var populateFacilityField = requestBody.GetBoolean("populateFacilityField");
             var printSidOnForm = requestBody.GetBoolean("printSidOnForm");
@@ -46,17 +45,13 @@ namespace RosterApiLambda.ReportRequestHandlers
             var useMorphometricsClosestTo = requestBody.GetString("useMorphometricsClosestTo");
 
             var seaTurtleService = new SeaTurtleService(organizationId);
-            var seaTurtleAsJson = await seaTurtleService.GetSeaTurtle(seaTurtleId);
-            var seaTurtle = JsonSerializer.Deserialize<SeaTurtleModel>(seaTurtleAsJson);
+            var seaTurtle = await seaTurtleService.GetSeaTurtle(seaTurtleId);
 
             var seaTurtleTagService = new SeaTurtleTagService(organizationId, seaTurtleId);
-            var seaTurtleTagsAsJson = await seaTurtleTagService.GetSeaTurtleTags();
-            var seaTurtleTags = new List<SeaTurtleTagModel>();
-            foreach (var seaTurtleTagAsJson in seaTurtleTagsAsJson)
-            {
-                var seaTurtleTag = JsonSerializer.Deserialize<SeaTurtleTagModel>(seaTurtleTagAsJson);
-                seaTurtleTags.Add(seaTurtleTag);
-            }
+            var seaTurtleTags = await seaTurtleTagService.GetSeaTurtleTags();
+
+            var seaTurtleMorphometricService = new SeaTurtleMorphometricService(organizationId, seaTurtleId);
+            var seaTurtleMorphometrics = await seaTurtleMorphometricService.GetSeaTurtleMorphometrics();
 
             var nonPitTags = seaTurtleTags.Where(x => x.tagType != "PIT" && !string.IsNullOrWhiteSpace(x.tagNumber));
 
@@ -68,16 +63,6 @@ namespace RosterApiLambda.ReportRequestHandlers
             var pitTags = seaTurtleTags.Where(x => x.tagType == "PIT");
             var pitTagNumber = string.Join(", ", pitTags.Where(x => !string.IsNullOrWhiteSpace(x.tagNumber)).Select(x => x.tagNumber));
             var pitTagLocation = string.Join(", ", pitTags.Where(x => !string.IsNullOrWhiteSpace(x.location)).Select(x => x.location));
-
-
-            var seaTurtleMorphometricService = new SeaTurtleMorphometricService(organizationId, seaTurtleId);
-            var seaTurtleMorphometricsAsJson = await seaTurtleMorphometricService.GetSeaTurtleMorphometrics();
-            var seaTurtleMorphometrics = new List<SeaTurtleMorphometricModel>();
-            foreach (var seaTurtleMorphometricAsJson in seaTurtleMorphometricsAsJson)
-            {
-                var seaTurtleMorphometric = JsonSerializer.Deserialize<SeaTurtleMorphometricModel>(seaTurtleMorphometricAsJson);
-                seaTurtleMorphometrics.Add(seaTurtleMorphometric);
-            }
 
             //----------------------------------------------------------------------------------------------------
 

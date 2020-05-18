@@ -1,6 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Amazon.DynamoDBv2.Model;
 using RosterApiLambda.Helpers;
+using RosterApiLambda.Models;
 
 namespace RosterApiLambda.Services
 {
@@ -15,10 +16,12 @@ namespace RosterApiLambda.Services
             _pk = $"ORGANIZATION#{organizationId}";
         }
 
-        public async Task<string> GetOrganization()
-            => await _dataHelper.GetItemAsync(_pk, "ORGANIZATION");
+        public async Task<OrganizationModel> GetOrganization()
+            => await _dataHelper.GetItemAsync<OrganizationModel>(_pk, "ORGANIZATION");
 
-        public async Task<PutItemResponse> SaveOrganization(string body)
-            => await _dataHelper.PutItemAsync(_pk, "ORGANIZATION", body);
+        public async Task<PutItemResponse> SaveOrganization(OrganizationModel organization)
+        {
+            return await _dataHelper.PutItemAsync(_pk, "ORGANIZATION", organization);
+        }
     }
 }

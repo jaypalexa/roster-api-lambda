@@ -1,11 +1,13 @@
 using System;
 using System.IdentityModel.Tokens.Jwt;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Amazon.Lambda.Core;
 using Microsoft.IdentityModel.Tokens;
 using RosterApiLambda.DataRequestHandlers;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Helpers;
+using RosterApiLambda.Models;
 using RosterApiLambda.ReportRequestHandlers;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
@@ -87,6 +89,7 @@ namespace RosterApiLambda
             body.data = request.resource switch
             {
                 "/organizations/{organizationId}" => await OrganizationDataRequestHandler.Handle(organizationId, request),
+                "/sea-turtle-list-items" => await SeaTurtleDataRequestHandler.Handle(organizationId, request),
                 "/sea-turtles" => await SeaTurtleDataRequestHandler.Handle(organizationId, request),
                 "/sea-turtles/{seaTurtleId}" => await SeaTurtleDataRequestHandler.Handle(organizationId, request),
                 "/sea-turtles/{seaTurtleId}/sea-turtle-tags" => await SeaTurtleTagDataRequestHandler.Handle(organizationId, request),

@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Text.Json;
 using System.Threading.Tasks;
-using RosterApiLambda.Dtos;
 using RosterApiLambda.DataRequestHandlers.Interfaces;
+using RosterApiLambda.Dtos;
 using RosterApiLambda.Helpers;
+using RosterApiLambda.Models;
 using RosterApiLambda.Services;
 
 namespace RosterApiLambda.DataRequestHandlers
@@ -18,7 +20,7 @@ namespace RosterApiLambda.DataRequestHandlers
                 "/organizations/{organizationId}" => request.httpMethod switch
                 {
                     "GET" => await organizationService.GetOrganization(),
-                    "PUT" => await organizationService.SaveOrganization(request.body),
+                    "PUT" => await organizationService.SaveOrganization(JsonSerializer.Deserialize<OrganizationModel>(request.body.GetRawText())),
                     _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidHttpMethodForResource(request.httpMethod, request.resource)),
                 },
                 _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidResource(request.resource)),

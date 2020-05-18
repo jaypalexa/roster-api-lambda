@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
-using System.Dynamic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2.Model;
 using RosterApiLambda.Helpers;
+using RosterApiLambda.Models;
 
 namespace RosterApiLambda.Services
 {
@@ -20,33 +21,40 @@ namespace RosterApiLambda.Services
             _organizationId = organizationId;
         }
 
-        public async Task<List<string>> GetSeaTurtles()
-            => await _dataHelper.QueryAsync(_pk, "SEA_TURTLE#");
+        public async Task<IEnumerable<SeaTurtleListItemModel>> GetSeaTurtleListItems()
+        {
+            var seaTurtles = await GetSeaTurtles();
 
-        public async Task<string> GetSeaTurtle(string seaTurtleId)
-            => await _dataHelper.GetItemAsync(_pk, $"SEA_TURTLE#{seaTurtleId}");
+            var seaTurtleListItems = seaTurtles.Select(x => JsonSerializer.Deserialize<SeaTurtleListItemModel>(JsonSerializer.Serialize(x)));
 
-        public async Task<PutItemResponse> SaveSeaTurtle(string seaTurtleId, string body)
-            => await _dataHelper.PutItemAsync(_pk, $"SEA_TURTLE#{seaTurtleId}", body);
+            return seaTurtleListItems;
+        }
+
+        public async Task<List<SeaTurtleModel>> GetSeaTurtles()
+            => await _dataHelper.QueryAsync<SeaTurtleModel>(_pk, "SEA_TURTLE#");
+
+        public async Task<SeaTurtleModel> GetSeaTurtle(string seaTurtleId)
+            => await _dataHelper.GetItemAsync<SeaTurtleModel>(_pk, $"SEA_TURTLE#{seaTurtleId}");
+
+        public async Task<PutItemResponse> SaveSeaTurtle(string seaTurtleId, SeaTurtleModel seaTurtle)
+            => await _dataHelper.PutItemAsync(_pk, $"SEA_TURTLE#{seaTurtleId}", seaTurtle);
 
         public async Task<DeleteItemResponse> DeleteSeaTurtle(string seaTurtleId)
         {
             var seaTurtleTagService = new SeaTurtleTagService(_organizationId, seaTurtleId);
 
             var seaTurtleTags = await seaTurtleTagService.GetSeaTurtleTags();
-            foreach (var seaTurtleTagAsJson in seaTurtleTags)
+            foreach (var seaTurtleTag in seaTurtleTags)
             {
-                dynamic seaTurtleTag = JsonSerializer.Deserialize<ExpandoObject>(seaTurtleTagAsJson);
-                await seaTurtleTagService.DeleteSeaTurtleTag(seaTurtleTag.seaTurtleTagId.GetString());
+                await seaTurtleTagService.DeleteSeaTurtleTag(seaTurtleTag.seaTurtleTagId);
             }
 
             var seaTurtleMorphometricService = new SeaTurtleMorphometricService(_organizationId, seaTurtleId);
 
             var seaTurtleMorphometrics = await seaTurtleMorphometricService.GetSeaTurtleMorphometrics();
-            foreach (var seaTurtleMorphometricAsJson in seaTurtleMorphometrics)
+            foreach (var seaTurtleMorphometric in seaTurtleMorphometrics)
             {
-                dynamic seaTurtleMorphometric = JsonSerializer.Deserialize<ExpandoObject>(seaTurtleMorphometricAsJson);
-                await seaTurtleMorphometricService.DeleteSeaTurtleMorphometric(seaTurtleMorphometric.seaTurtleMorphometricId.GetString());
+                await seaTurtleMorphometricService.DeleteSeaTurtleMorphometric(seaTurtleMorphometric.seaTurtleMorphometricId);
             }
 
             return await _dataHelper.DeleteItemAsync(_pk, $"SEA_TURTLE#{seaTurtleId}");

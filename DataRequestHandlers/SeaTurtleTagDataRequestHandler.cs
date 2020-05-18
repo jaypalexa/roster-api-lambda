@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Text.Json;
 using System.Threading.Tasks;
-using RosterApiLambda.Dtos;
 using RosterApiLambda.DataRequestHandlers.Interfaces;
+using RosterApiLambda.Dtos;
 using RosterApiLambda.Helpers;
+using RosterApiLambda.Models;
 using RosterApiLambda.Services;
 
 namespace RosterApiLambda.DataRequestHandlers
@@ -26,7 +28,7 @@ namespace RosterApiLambda.DataRequestHandlers
                 "/sea-turtles/{seaTurtleId}/sea-turtle-tags/{seaTurtleTagId}" => request.httpMethod switch
                 {
                     "GET" => await seaTurtleTagService.GetSeaTurtleTag(seaTurtleTagId),
-                    "PUT" => await seaTurtleTagService.SaveSeaTurtleTag(seaTurtleTagId, request.body),
+                    "PUT" => await seaTurtleTagService.SaveSeaTurtleTag(seaTurtleTagId, JsonSerializer.Deserialize<SeaTurtleTagModel>(request.body.GetRawText())),
                     "DELETE" => await seaTurtleTagService.DeleteSeaTurtleTag(seaTurtleTagId),
                     _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidHttpMethodForResource(request.httpMethod, request.resource)),
                 },

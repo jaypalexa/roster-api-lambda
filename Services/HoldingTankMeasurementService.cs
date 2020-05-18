@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2.Model;
 using RosterApiLambda.Helpers;
+using RosterApiLambda.Models;
 
 namespace RosterApiLambda.Services
 {
@@ -16,14 +17,14 @@ namespace RosterApiLambda.Services
             _pk = $"HOLDING_TANK#{holdingTankId}";
         }
 
-        public async Task<List<string>> GetHoldingTankMeasurements()
-            => await _dataHelper.QueryAsync(_pk, "HOLDING_TANK_MEASUREMENT#");
+        public async Task<List<HoldingTankMeasurementModel>> GetHoldingTankMeasurements()
+            => await _dataHelper.QueryAsync<HoldingTankMeasurementModel>(_pk, "HOLDING_TANK_MEASUREMENT#");
 
-        public async Task<string> GetHoldingTankMeasurement(string holdingTankMeasurementId)
-            => await _dataHelper.GetItemAsync(_pk, $"HOLDING_TANK_MEASUREMENT#{holdingTankMeasurementId}");
+        public async Task<HoldingTankMeasurementModel> GetHoldingTankMeasurement(string holdingTankMeasurementId)
+            => await _dataHelper.GetItemAsync<HoldingTankMeasurementModel>(_pk, $"HOLDING_TANK_MEASUREMENT#{holdingTankMeasurementId}");
 
-        public async Task<PutItemResponse> SaveHoldingTankMeasurement(string holdingTankMeasurementId, string body)
-            => await _dataHelper.PutItemAsync(_pk, $"HOLDING_TANK_MEASUREMENT#{holdingTankMeasurementId}", body);
+        public async Task<PutItemResponse> SaveHoldingTankMeasurement(string holdingTankMeasurementId, HoldingTankMeasurementModel holdingTankMeasurement)
+            => await _dataHelper.PutItemAsync(_pk, $"HOLDING_TANK_MEASUREMENT#{holdingTankMeasurementId}", holdingTankMeasurement);
 
         public async Task<DeleteItemResponse> DeleteHoldingTankMeasurement(string holdingTankMeasurementId)
             => await _dataHelper.DeleteItemAsync(_pk, $"HOLDING_TANK_MEASUREMENT#{holdingTankMeasurementId}");

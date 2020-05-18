@@ -29,8 +29,10 @@ namespace RosterApiLambda
                 return response;
             }
 
-            if (request.resource == "/wake-up")
+            if (request.resource == "/wakeup")
             {
+                var dataHelper = new DataHelper("wakeup");
+                _ = dataHelper.GetItemAsync("WAKEUP", "WAKEUP");
                 response.body.message = $"{request.resource} at: {DateTime.Now.ToUniversalTime()}";
                 return response;
             }

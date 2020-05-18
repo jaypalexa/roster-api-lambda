@@ -10,9 +10,9 @@ namespace RosterApiLambda.Helpers
     {
         private string TABLE_NAME { get; }
 
-        public DataHelper(string organizationId)
+        public DataHelper(string tableName)
         {
-            TABLE_NAME = $"roster-table-{organizationId}";
+            TABLE_NAME = $"roster-table-{tableName}";
         }
 
         private Dictionary<string, AttributeValue> GetKey(string pk, string sk) => new Dictionary<string, AttributeValue> {

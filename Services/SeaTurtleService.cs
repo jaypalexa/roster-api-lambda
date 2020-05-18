@@ -1,8 +1,7 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2.Model;
+using AutoMapper;
 using RosterApiLambda.Helpers;
 using RosterApiLambda.Models;
 
@@ -25,7 +24,9 @@ namespace RosterApiLambda.Services
         {
             var seaTurtles = await GetSeaTurtles();
 
-            var seaTurtleListItems = seaTurtles.Select(x => JsonSerializer.Deserialize<SeaTurtleListItemModel>(JsonSerializer.Serialize(x)));
+            var config = new MapperConfiguration(cfg => cfg.CreateMap<SeaTurtleModel, SeaTurtleListItemModel>());
+            var mapper = new Mapper(config);
+            var seaTurtleListItems = mapper.Map<List<SeaTurtleListItemModel>>(seaTurtles);
 
             return seaTurtleListItems;
         }

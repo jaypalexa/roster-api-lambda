@@ -23,6 +23,11 @@ namespace RosterApiLambda.DataRequestHandlers
                     "PUT" => await organizationService.SaveOrganization(JsonSerializer.Deserialize<OrganizationModel>(request.body.GetRawText())),
                     _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidHttpMethodForResource(request.httpMethod, request.resource)),
                 },
+                "/organizations/{organizationId}/last-update" => request.httpMethod switch
+                {
+                    "GET" => await organizationService.GetLastUpdate(),
+                    _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidHttpMethodForResource(request.httpMethod, request.resource)),
+                },
                 _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidResource(request.resource)),
             };
         }

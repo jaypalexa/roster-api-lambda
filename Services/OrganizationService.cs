@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Amazon.DynamoDBv2.Model;
 using RosterApiLambda.Helpers;
 using RosterApiLambda.Models;
@@ -22,6 +23,12 @@ namespace RosterApiLambda.Services
         public async Task<PutItemResponse> SaveOrganization(OrganizationModel organization)
         {
             return await _dataHelper.PutItemAsync(_pk, "ORGANIZATION", organization);
+        }
+
+        public async Task<int> GetLastUpdate()
+        {
+            var lastUpdateModel = await _dataHelper.GetItemAsync<LastUpdateModel>("LAST_UPDATE", "LAST_UPDATE");
+            return lastUpdateModel.lastUpdate;
         }
     }
 }

@@ -1,9 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using RosterApiLambda.Models;
 
 namespace RosterApiLambda.Helpers
 {
@@ -35,7 +37,7 @@ namespace RosterApiLambda.Helpers
             }
         };
 
-        async public Task<List<T>> QueryAsync<T>(string pk, string sk)
+        public async Task<List<T>> QueryAsync<T>(string pk, string sk)
         {
             var data = new List<T>();
 
@@ -74,7 +76,7 @@ namespace RosterApiLambda.Helpers
             return data;
         }
 
-        async public Task<List<string>> QueryAsync(string pk, string sk)
+        public async Task<List<string>> QueryAsync(string pk, string sk)
         {
             var data = new List<string>();
 
@@ -113,7 +115,7 @@ namespace RosterApiLambda.Helpers
             return data;
         }
 
-        async public Task<T> GetItemAsync<T>(string pk, string sk)
+        public async Task<T> GetItemAsync<T>(string pk, string sk)
         {
             using var client = new AmazonDynamoDBClient();
             var key = GetKey(pk, sk);
@@ -123,7 +125,7 @@ namespace RosterApiLambda.Helpers
             return item;
         }
 
-        async public Task<string> GetItemAsync(string pk, string sk)
+        public async Task<string> GetItemAsync(string pk, string sk)
         {
             using var client = new AmazonDynamoDBClient();
             var key = GetKey(pk, sk);
@@ -132,8 +134,10 @@ namespace RosterApiLambda.Helpers
             return getItemResponse.Item["data"].S;
         }
 
-        async public Task<PutItemResponse> PutItemAsync<T>(string pk, string sk, T body)
+        public async Task<PutItemResponse> PutItemAsync<T>(string pk, string sk, T body)
         {
+            await SetLastUpdateAsync();
+
             using var client = new AmazonDynamoDBClient();
             var key = GetKey(pk, sk);
             var item = key.ToDictionary(x => x.Key, x => x.Value);
@@ -143,13 +147,27 @@ namespace RosterApiLambda.Helpers
             return putItemResponse;
         }
 
-        async public Task<DeleteItemResponse> DeleteItemAsync(string pk, string sk)
+        public async Task<DeleteItemResponse> DeleteItemAsync(string pk, string sk)
         {
+            await SetLastUpdateAsync();
+
             using var client = new AmazonDynamoDBClient();
             var key = GetKey(pk, sk);
             var deleteItemRequest = new DeleteItemRequest(TABLE_NAME, key);
             var deleteItemResponse = await client.DeleteItemAsync(deleteItemRequest);
             return deleteItemResponse;
+        }
+
+        private async Task SetLastUpdateAsync()
+        {
+            var lastUpdateModel = new LastUpdateModel { lastUpdate = Convert.ToInt32(Math.Floor(DateTimeOffset.Now.ToUnixTimeMilliseconds() / 1000.0)) };
+
+            using var client = new AmazonDynamoDBClient();
+            var key = GetKey("LAST_UPDATE", "LAST_UPDATE");
+            var item = key.ToDictionary(x => x.Key, x => x.Value);
+            item.Add("data", new AttributeValue { S = JsonSerializer.Serialize(lastUpdateModel) });
+            var putItemRequest = new PutItemRequest(TABLE_NAME, item);
+            _ = await client.PutItemAsync(putItemRequest);
         }
 
     }

@@ -10,14 +10,14 @@ namespace RosterApiLambda.Helpers
 {
     public class ConversionHelper
     {
-        public static Task DoConversion()
+        public static Task DoConversion(string jsonFileName) // async
         {
             return Task.CompletedTask;
 
             //var organizationId = "b225dd24-1d37-4252-b989-e342a690968b";
 
             //var basePath = AppDomain.CurrentDomain.BaseDirectory;
-            //var importFileName = Path.Combine(basePath, "csvjson.washbacks_released_event.json");
+            //var importFileName = Path.Combine(basePath, jsonFileName);
             //var json = File.ReadAllText(importFileName);
 
             //var seaTurtles = JsonSerializer.Deserialize<List<SeaTurtleModel>>(json);

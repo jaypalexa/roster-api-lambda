@@ -1,29 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Dynamic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using iTextSharp.text.pdf;
 using RosterApiLambda.Dtos;
-using RosterApiLambda.Extensions;
+using RosterApiLambda.Dtos.ReportOptions;
 using RosterApiLambda.Models;
-using RosterApiLambda.ReportRequestHandlers.Interfaces;
 using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
 {
-    public class TaggingDataFormReportRequestHandler : IReportRequestHandler
+    public class TaggingDataFormReportRequestHandler
     {
-        public static async Task<object> Handle(string organizationId, string reportId, RosterRequest request)
+        public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
-            /*
-                "MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Hatchlings.pdf",
-                "MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Washbacks.pdf",
-                "MarineTurtleHoldingFacilityQuarterlyReport" => "MASTER - Marine Turtle Holding Facility Quarterly Report.pdf",
-                "TaggingDataForm" => "MASTER - Tagging Data form.pdf",
-            */
+            var reportOptions = JsonSerializer.Deserialize<TaggingDataFormReportOptions>(request.body.GetRawText());
 
             var fileTimestamp = $"{DateTime.Now:yyyyMMddHHmmss} UTC";
 
@@ -37,20 +29,13 @@ namespace RosterApiLambda.ReportRequestHandlers
             var organization = await organizationService.GetOrganization();
             var organizationInformation = $"{organization.organizationName} - {organization.phone} - {organization.emailAddress}";
 
-            IDictionary<string, object> requestBody = JsonSerializer.Deserialize<ExpandoObject>(request.body.GetRawText());
-            var seaTurtleId = requestBody.GetString("seaTurtleId");
-            var populateFacilityField = requestBody.GetBoolean("populateFacilityField");
-            var printSidOnForm = requestBody.GetBoolean("printSidOnForm");
-            var additionalRemarksOrDataOnBackOfForm = requestBody.GetBoolean("additionalRemarksOrDataOnBackOfForm");
-            var useMorphometricsClosestTo = requestBody.GetString("useMorphometricsClosestTo");
-
             var seaTurtleService = new SeaTurtleService(organizationId);
-            var seaTurtle = await seaTurtleService.GetSeaTurtle(seaTurtleId);
+            var seaTurtle = await seaTurtleService.GetSeaTurtle(reportOptions.seaTurtleId);
 
-            var seaTurtleTagService = new SeaTurtleTagService(organizationId, seaTurtleId);
+            var seaTurtleTagService = new SeaTurtleTagService(organizationId, reportOptions.seaTurtleId);
             var seaTurtleTags = await seaTurtleTagService.GetSeaTurtleTags();
 
-            var seaTurtleMorphometricService = new SeaTurtleMorphometricService(organizationId, seaTurtleId);
+            var seaTurtleMorphometricService = new SeaTurtleMorphometricService(organizationId, reportOptions.seaTurtleId);
             var seaTurtleMorphometrics = await seaTurtleMorphometricService.GetSeaTurtleMorphometrics();
 
             var nonPitTags = seaTurtleTags.Where(x => x.tagType != "PIT" && !string.IsNullOrWhiteSpace(x.tagNumber));
@@ -82,7 +67,7 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             var acroFields = pdfStamper.AcroFields;
 
-            acroFields.SetField("txtSID", printSidOnForm ? $"SID:  {seaTurtle.sidNumber}" : string.Empty);
+            acroFields.SetField("txtSID", reportOptions.printSidOnForm ? $"SID:  {seaTurtle.sidNumber}" : string.Empty);
             acroFields.SetField("txtSpecies", seaTurtle.species);
 
             string dateCaptured = seaTurtle.dateCaptured ?? seaTurtle.dateAcquired;
@@ -170,7 +155,7 @@ namespace RosterApiLambda.ReportRequestHandlers
                     break;
             }
 
-            if (populateFacilityField)
+            if (reportOptions.populateFacilityField)
             {
                 acroFields.SetField("txtFacility", organizationInformation);
             }
@@ -192,7 +177,7 @@ namespace RosterApiLambda.ReportRequestHandlers
             var dateRelinquished = string.IsNullOrWhiteSpace(seaTurtle.dateRelinquished) ? "9999-99-99" : seaTurtle.dateRelinquished;
             var closestMorphometric = new SeaTurtleMorphometricModel();
 
-            if (useMorphometricsClosestTo == "dateAcquired")
+            if (reportOptions.useMorphometricsClosestTo == "dateAcquired")
             {
                 // get first after acquired...
                 closestMorphometric = seaTurtleMorphometrics
@@ -340,7 +325,7 @@ namespace RosterApiLambda.ReportRequestHandlers
                 acroFields.SetField("radLivingTags", "No");
             }
 
-            acroFields.SetField("radAdditionalRemarksOnBack", additionalRemarksOrDataOnBackOfForm ? "Yes" : "No");
+            acroFields.SetField("radAdditionalRemarksOnBack", reportOptions.additionalRemarksOrDataOnBackOfForm ? "Yes" : "No");
 
             // =============================================================================
 

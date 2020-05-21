@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Threading.Tasks;
-using RosterApiLambda.DataRequestHandlers.Interfaces;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Helpers;
 using RosterApiLambda.Services;
 
 namespace RosterApiLambda.DataRequestHandlers
 {
-    public class LastUpdateDataRequestHandler : IDataRequestHandler
+    public class LastUpdateDataRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

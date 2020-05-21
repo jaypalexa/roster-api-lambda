@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Text.Json;
 using System.Threading.Tasks;
-using RosterApiLambda.DataRequestHandlers.Interfaces;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Helpers;
 using RosterApiLambda.Models;
@@ -9,7 +8,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.DataRequestHandlers
 {
-    public class SeaTurtleDataRequestHandler : IDataRequestHandler
+    public class SeaTurtleDataRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

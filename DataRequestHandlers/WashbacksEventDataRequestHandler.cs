@@ -1,15 +1,14 @@
 ﻿using System;
+using System.Text.Json;
 using System.Threading.Tasks;
 using RosterApiLambda.Dtos;
-using RosterApiLambda.DataRequestHandlers.Interfaces;
 using RosterApiLambda.Helpers;
-using RosterApiLambda.Services;
 using RosterApiLambda.Models;
-using System.Text.Json;
+using RosterApiLambda.Services;
 
 namespace RosterApiLambda.DataRequestHandlers
 {
-    public class WashbacksEventDataRequestHandler : IDataRequestHandler
+    public class WashbacksEventDataRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

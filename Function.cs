@@ -25,7 +25,7 @@ namespace RosterApiLambda
 
             if (request.resource == "/convert")
             {
-                await ConversionHelper.DoConversion();
+                await ConversionHelper.DoConversion("csvjson.turtle_tag.json");
 
                 response.body.message = $"{request.resource} at: {DateTime.Now.ToUniversalTime()}";
                 return response;
@@ -75,7 +75,8 @@ namespace RosterApiLambda
                 //"MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Hatchlings.pdf",
                 //"MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Washbacks.pdf",
                 //"MarineTurtleHoldingFacilityQuarterlyReport" => "MASTER - Marine Turtle Holding Facility Quarterly Report.pdf",
-                "TaggingDataForm" => await TaggingDataFormReportRequestHandler.Handle(organizationId, reportId, request),
+                "TaggingDataForm" => await TaggingDataFormReportRequestHandler.Handle(organizationId, request),
+                "TurtleTagReport" => await TurtleTagReportRequestHandler.Handle(organizationId, request),
                 _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidReportId(reportId)),
             };
 

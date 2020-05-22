@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using RosterApiLambda.Dtos;
@@ -13,69 +12,75 @@ namespace RosterApiLambda.ReportRequestHandlers
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
-            var response = new List<HatchlingsAndWashbacksByCountyReportContentDto>();
+            var response = new HatchlingsAndWashbacksByCountyReportContentDto();
 
             var reportOptions = JsonSerializer.Deserialize<ReportOptionsDateRangeDto>(request.body.GetRawText());
             reportOptions.dateFrom ??= "0000-00-00";
             reportOptions.dateThru ??= "9999-99-99";
 
-            //var seaTurtleService = new SeaTurtleService(organizationId);
-            //var seaTurtles = (await seaTurtleService.GetSeaTurtles()).OrderBy(x => x.dateAcquired).ThenBy(x => x.sidNumber).ThenBy(x => x.seaTurtleName);
+            var hatchlingsEventService = new HatchlingsEventService(organizationId);
+            var hatchlingsEvents = (await hatchlingsEventService.GetHatchlingsEvents()).Where(x => !string.IsNullOrEmpty(x.eventDate)
+                && (reportOptions.dateFrom.CompareTo(x.eventDate) <= 0 && x.eventDate.CompareTo(reportOptions.dateThru) <= 0));
 
-            //foreach (var seaTurtle in seaTurtles)
-            //{
-            //    var item = new TurtleTagReportDetailItemDto
-            //    {
-            //        seaTurtleId = seaTurtle.seaTurtleId,
-            //        sidNumber = seaTurtle.sidNumber,
-            //        seaTurtleName = seaTurtle.seaTurtleName,
-            //        dateRelinquished = seaTurtle.dateRelinquished,
-            //        strandingIdNumber = seaTurtle.strandingIdNumber, 
-            //    };
+            var washbacksEventService = new WashbacksEventService(organizationId);
+            var washbacksEvents = (await washbacksEventService.GetWashbacksEvents()).Where(x => !string.IsNullOrEmpty(x.eventDate)
+                && (reportOptions.dateFrom.CompareTo(x.eventDate) <= 0 && x.eventDate.CompareTo(reportOptions.dateThru) <= 0));
 
-            //    var seaTurtleTagService = new SeaTurtleTagService(organizationId, seaTurtle.seaTurtleId);
-            //    var seaTurtleTags = await seaTurtleTagService.GetSeaTurtleTags();
-            //    seaTurtleTags = seaTurtleTags.Where(x => 
-            //        (reportOptions.isPit && x.tagType == "PIT")
-            //        || (reportOptions.isLff && x.location == "LFF")
-            //        || (reportOptions.isRff && x.location == "RFF")
-            //        || (reportOptions.isLrf && x.location == "LRF")
-            //        || (reportOptions.isRrf && x.location == "RRF")
-            //    ).ToList();
-            //    var orderedTags = seaTurtleTags.OrderBy(x => x.tagType != "PIT").ThenBy(x => x.location);
-            //    item.tags = orderedTags.Select(x => new TurtleTagReportDetailItemTagDto { label = x.tagType == "PIT" ? "PIT" : x.location, tagNumber = x.tagNumber, dateTagged = x.dateTagged }).ToList();
+            var countyNames = hatchlingsEvents.Select(x => x.eventCounty)
+                .Union(washbacksEvents.Select(x => x.eventCounty))
+                .Distinct()
+                .Where(x => !string.IsNullOrEmpty(x))
+                .OrderBy(x => x).ToList();
 
-            //    var includeItem = false;
-            //    switch (reportOptions.filterDateType)
-            //    {
-            //        case "dateTagged":
-            //            includeItem = item.tags.Any(x => !string.IsNullOrEmpty(x.dateTagged) 
-            //                && (reportOptions.dateFrom.CompareTo(x.dateTagged) <= 0 && x.dateTagged.CompareTo(reportOptions.dateThru) <= 0));
-            //            break;
-            //        case "dateAcquired":
-            //            includeItem = string.IsNullOrEmpty(seaTurtle.dateAcquired) 
-            //                || (reportOptions.dateFrom.CompareTo(seaTurtle.dateAcquired) <= 0 && seaTurtle.dateAcquired.CompareTo(reportOptions.dateThru) <= 0);
-            //            break;
-            //        case "dateRelinquished":
-            //            if (reportOptions.includeNonRelinquishedTurtles)
-            //            {
-            //                includeItem = string.IsNullOrEmpty(seaTurtle.dateRelinquished)
-            //                    || (reportOptions.dateFrom.CompareTo(seaTurtle.dateRelinquished) <= 0 && seaTurtle.dateRelinquished.CompareTo(reportOptions.dateThru) <= 0);
-            //            } else
-            //            {
-            //                includeItem = !string.IsNullOrEmpty(seaTurtle.dateRelinquished)
-            //                    && (reportOptions.dateFrom.CompareTo(seaTurtle.dateRelinquished) <= 0 && seaTurtle.dateRelinquished.CompareTo(reportOptions.dateThru) <= 0);
-            //            }
-            //            break;
-            //        default:
-            //            break;
-            //    }
+            var allCountiesCount = new HatchlingsAndWashbacksByCountyReportCountyCountDto() { countyName = "ALL COUNTIES" };
 
-            //    if (includeItem)
-            //    {
-            //        response.Add(item);
-            //    }
-            //}
+            foreach (var countyName in countyNames)
+            {
+                var hatchlingsEventsForCounty = hatchlingsEvents.Where(x => x.eventCounty == countyName);
+
+                int getHatchlingsEventCount(string[] species, string eventType) =>
+                    hatchlingsEventsForCounty
+                        .Where(x => (species.Length == 0 || species.Contains(x.species)) && x.eventType == eventType)
+                        .Sum(x => x.eventCount + x.beachEventCount + x.offshoreEventCount);
+
+                var washbacksEventsForCounty = washbacksEvents.Where(x => x.eventCounty == countyName);
+
+                int getWashbacksEventCount(string[] species, string eventType, bool under5cmClsl) =>
+                    washbacksEventsForCounty
+                        .Where(x => (species.Length == 0 || species.Contains(x.species)) && x.eventType == eventType && x.under5cmClsl == under5cmClsl)
+                        .Sum(x => x.eventCount + x.beachEventCount + x.offshoreEventCount);
+
+                HatchlingsAndWashbacksByCountyReportDetailItemDto getSpeciesCounts(string[] species) => 
+                    new HatchlingsAndWashbacksByCountyReportDetailItemDto
+                    {
+                        hatchlingsAcquired = getHatchlingsEventCount(species, "Acquired"),
+                        hatchlingsDoa = getHatchlingsEventCount(species, "DOA"),
+                        washbacksUnder5cmAcquired = getWashbacksEventCount(species, "Acquired", true),
+                        washbacksOver5cmAcquired = getWashbacksEventCount(species, "Acquired", false),
+                        washbacksUnder5cmDoa = getWashbacksEventCount(species, "DOA", true),
+                        washbacksOver5cmDoa = getWashbacksEventCount(species, "DOA", false),
+                    };
+
+                var countyCount = new HatchlingsAndWashbacksByCountyReportCountyCountDto() { countyName = countyName };
+
+                countyCount.ccCount = getSpeciesCounts(new[] { "CC" });
+                countyCount.cmCount = getSpeciesCounts(new[] { "CM" });
+                countyCount.dcCount = getSpeciesCounts(new[] { "DC" });
+                countyCount.otherCount = getSpeciesCounts(new[] { "LK", "LO", "EI", "HB" });
+                countyCount.unknownCount = getSpeciesCounts(new[] { "XX", "", null });
+                countyCount.totalCount = getSpeciesCounts(new string[] { });
+
+                response.countyCounts.Add(countyCount);
+
+                allCountiesCount.AppendCounts(countyCount);
+            }
+
+            foreach (var countyCount in response.countyCounts)
+            {
+                countyCount.SetPercentageOfGrandTotal(allCountiesCount.totalCount);
+            }
+
+            response.countyCounts.Insert(0, allCountiesCount);
 
             return response;
         }

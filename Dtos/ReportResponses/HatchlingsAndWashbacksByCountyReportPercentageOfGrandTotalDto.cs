@@ -1,13 +1,13 @@
 ﻿namespace RosterApiLambda.Dtos.ReportResponses
 {
-    public class HatchlingsAndWashbacksByCountyReportDetailItemDto
+    public class HatchlingsAndWashbacksByCountyReportPercentageOfGrandTotalDto
     {
-        public int hatchlingsAcquired { get; set; }
-        public int hatchlingsDoa { get; set; }
-        public int washbacksUnder5cmAcquired { get; set; }
-        public int washbacksOver5cmAcquired { get; set; }
-        public int washbacksUnder5cmDoa { get; set; }
-        public int washbacksOver5cmDoa { get; set; }
+        public double hatchlingsAcquired { get; set; }
+        public double hatchlingsDoa { get; set; }
+        public double washbacksUnder5cmAcquired { get; set; }
+        public double washbacksOver5cmAcquired { get; set; }
+        public double washbacksUnder5cmDoa { get; set; }
+        public double washbacksOver5cmDoa { get; set; }
 
         public void AppendCounts(HatchlingsAndWashbacksByCountyReportDetailItemDto from)
         {

@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using RosterApiLambda.Dtos;
@@ -13,7 +12,7 @@ namespace RosterApiLambda.ReportRequestHandlers
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
-            var response = new List<TurtleTagReportDetailItem>();
+            var response = new TurtleTagReportContent();
 
             var reportOptions = JsonSerializer.Deserialize<TurtleTagReportOptions>(request.body.GetRawText());
             reportOptions.dateFrom ??= "0000-00-00";
@@ -30,12 +29,12 @@ namespace RosterApiLambda.ReportRequestHandlers
                     sidNumber = seaTurtle.sidNumber,
                     seaTurtleName = seaTurtle.seaTurtleName,
                     dateRelinquished = seaTurtle.dateRelinquished,
-                    strandingIdNumber = seaTurtle.strandingIdNumber, 
+                    strandingIdNumber = seaTurtle.strandingIdNumber,
                 };
 
                 var seaTurtleTagService = new SeaTurtleTagService(organizationId, seaTurtle.seaTurtleId);
                 var seaTurtleTags = await seaTurtleTagService.GetSeaTurtleTags();
-                seaTurtleTags = seaTurtleTags.Where(x => 
+                seaTurtleTags = seaTurtleTags.Where(x =>
                     (reportOptions.isPit && x.tagType == "PIT")
                     || (reportOptions.isLff && x.location == "LFF")
                     || (reportOptions.isRff && x.location == "RFF")
@@ -49,11 +48,11 @@ namespace RosterApiLambda.ReportRequestHandlers
                 switch (reportOptions.filterDateType)
                 {
                     case "dateTagged":
-                        includeItem = item.tags.Any(x => !string.IsNullOrEmpty(x.dateTagged) 
+                        includeItem = item.tags.Any(x => !string.IsNullOrEmpty(x.dateTagged)
                             && (reportOptions.dateFrom.CompareTo(x.dateTagged) <= 0 && x.dateTagged.CompareTo(reportOptions.dateThru) <= 0));
                         break;
                     case "dateAcquired":
-                        includeItem = string.IsNullOrEmpty(seaTurtle.dateAcquired) 
+                        includeItem = string.IsNullOrEmpty(seaTurtle.dateAcquired)
                             || (reportOptions.dateFrom.CompareTo(seaTurtle.dateAcquired) <= 0 && seaTurtle.dateAcquired.CompareTo(reportOptions.dateThru) <= 0);
                         break;
                     case "dateRelinquished":
@@ -61,7 +60,8 @@ namespace RosterApiLambda.ReportRequestHandlers
                         {
                             includeItem = string.IsNullOrEmpty(seaTurtle.dateRelinquished)
                                 || (reportOptions.dateFrom.CompareTo(seaTurtle.dateRelinquished) <= 0 && seaTurtle.dateRelinquished.CompareTo(reportOptions.dateThru) <= 0);
-                        } else
+                        }
+                        else
                         {
                             includeItem = !string.IsNullOrEmpty(seaTurtle.dateRelinquished)
                                 && (reportOptions.dateFrom.CompareTo(seaTurtle.dateRelinquished) <= 0 && seaTurtle.dateRelinquished.CompareTo(reportOptions.dateThru) <= 0);
@@ -73,22 +73,9 @@ namespace RosterApiLambda.ReportRequestHandlers
 
                 if (includeItem)
                 {
-                    response.Add(item);
+                    response.detailItems.Add(item);
                 }
             }
-
-            //var nonPitTags = seaTurtleTags.Where(x => x.tagType != "PIT" && !string.IsNullOrWhiteSpace(x.tagNumber));
-
-            //var flipperTagLeftFront = string.Join(", ", nonPitTags.Where(x => x.location == "LFF").Select(x => x.tagNumber));
-            //var flipperTagRightFront = string.Join(", ", nonPitTags.Where(x => x.location == "RFF").Select(x => x.tagNumber));
-            //var flipperTagLeftRear = string.Join(", ", nonPitTags.Where(x => x.location == "LRF").Select(x => x.tagNumber));
-            //var flipperTagRightRear = string.Join(", ", nonPitTags.Where(x => x.location == "RRF").Select(x => x.tagNumber));
-
-            //var pitTags = seaTurtleTags.Where(x => x.tagType == "PIT");
-            //var pitTagNumber = string.Join(", ", pitTags.Where(x => !string.IsNullOrWhiteSpace(x.tagNumber)).Select(x => x.tagNumber));
-            //var pitTagLocation = string.Join(", ", pitTags.Where(x => !string.IsNullOrWhiteSpace(x.location)).Select(x => x.location));
-
-            //----------------------------------------------------------------------------------------------------
 
             return response;
         }

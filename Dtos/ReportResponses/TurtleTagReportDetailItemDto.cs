@@ -2,11 +2,11 @@
 
 namespace RosterApiLambda.Dtos.ReportResponses
 {
-    public class TurtleTagReportDetailItem
+    public class TurtleTagReportDetailItemDto
     {
-        public TurtleTagReportDetailItem()
+        public TurtleTagReportDetailItemDto()
         {
-            tags = new List<TurtleTagReportDetailItemTag>();
+            tags = new List<TurtleTagReportDetailItemTagDto>();
         }
 
         public string seaTurtleId { get; set; }
@@ -14,6 +14,6 @@ namespace RosterApiLambda.Dtos.ReportResponses
         public string seaTurtleName { get; set; }
         public string dateRelinquished { get; set; }
         public string strandingIdNumber { get; set; }
-        public List<TurtleTagReportDetailItemTag> tags { get; set; }
+        public List<TurtleTagReportDetailItemTagDto> tags { get; set; }
     }
 }

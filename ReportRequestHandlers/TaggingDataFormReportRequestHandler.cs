@@ -15,7 +15,7 @@ namespace RosterApiLambda.ReportRequestHandlers
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
-            var reportOptions = JsonSerializer.Deserialize<TaggingDataFormReportOptions>(request.body.GetRawText());
+            var reportOptions = JsonSerializer.Deserialize<TaggingDataFormReportOptionsDto>(request.body.GetRawText());
 
             var fileTimestamp = $"{DateTime.Now:yyyyMMddHHmmss} UTC";
 

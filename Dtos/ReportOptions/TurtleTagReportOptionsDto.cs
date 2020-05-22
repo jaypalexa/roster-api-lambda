@@ -1,6 +1,6 @@
 ﻿namespace RosterApiLambda.Dtos.ReportOptions
 {
-    public class TurtleTagReportOptions
+    public class TurtleTagReportOptionsDto
     {
         public string dateFrom { get; set; }
         public string dateThru { get; set; }

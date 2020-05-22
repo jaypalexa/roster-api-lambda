@@ -1,6 +1,6 @@
 ﻿namespace RosterApiLambda.Dtos.ReportOptions
 {
-    public class TaggingDataFormReportOptions
+    public class TaggingDataFormReportOptionsDto
     {
         public string seaTurtleId { get; set; }
         public bool populateFacilityField { get; set; }

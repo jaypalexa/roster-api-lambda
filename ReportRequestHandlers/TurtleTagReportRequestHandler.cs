@@ -12,9 +12,9 @@ namespace RosterApiLambda.ReportRequestHandlers
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
-            var response = new TurtleTagReportContent();
+            var response = new TurtleTagReportContentDto();
 
-            var reportOptions = JsonSerializer.Deserialize<TurtleTagReportOptions>(request.body.GetRawText());
+            var reportOptions = JsonSerializer.Deserialize<TurtleTagReportOptionsDto>(request.body.GetRawText());
             reportOptions.dateFrom ??= "0000-00-00";
             reportOptions.dateThru ??= "9999-99-99";
 
@@ -23,7 +23,7 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             foreach (var seaTurtle in seaTurtles)
             {
-                var item = new TurtleTagReportDetailItem
+                var item = new TurtleTagReportDetailItemDto
                 {
                     seaTurtleId = seaTurtle.seaTurtleId,
                     sidNumber = seaTurtle.sidNumber,
@@ -42,7 +42,7 @@ namespace RosterApiLambda.ReportRequestHandlers
                     || (reportOptions.isRrf && x.location == "RRF")
                 ).ToList();
                 var orderedTags = seaTurtleTags.OrderBy(x => x.tagType != "PIT").ThenBy(x => x.location);
-                item.tags = orderedTags.Select(x => new TurtleTagReportDetailItemTag { label = x.tagType == "PIT" ? "PIT" : x.location, tagNumber = x.tagNumber, dateTagged = x.dateTagged }).ToList();
+                item.tags = orderedTags.Select(x => new TurtleTagReportDetailItemTagDto { label = x.tagType == "PIT" ? "PIT" : x.location, tagNumber = x.tagNumber, dateTagged = x.dateTagged }).ToList();
 
                 var includeItem = false;
                 switch (reportOptions.filterDateType)

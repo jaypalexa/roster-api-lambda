@@ -23,13 +23,12 @@ namespace RosterApiLambda
 
             var response = new RosterResponse();
 
-            if (request.resource == "/convert")
-            {
-                await ConversionHelper.DoConversion("csvjson.turtle_tag.json");
-
-                response.body.message = $"{request.resource} at: {DateTime.Now.ToUniversalTime()}";
-                return response;
-            }
+            //if (request.resource == "/convert")
+            //{
+            //    await ConversionHelper.DoConversion("csvjson.turtle_tag.json");
+            //    response.body.message = $"{request.resource} at: {DateTime.Now.ToUniversalTime()}";
+            //    return response;
+            //}
 
             if (request.resource == "/wakeup")
             {
@@ -75,6 +74,7 @@ namespace RosterApiLambda
                 //"MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Hatchlings.pdf",
                 //"MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Washbacks.pdf",
                 //"MarineTurtleHoldingFacilityQuarterlyReport" => "MASTER - Marine Turtle Holding Facility Quarterly Report.pdf",
+                "HatchlingsAndWashbacksByCountyReport" => await HatchlingsAndWashbacksByCountyReportRequestHandler.Handle(organizationId, request),
                 "TaggingDataForm" => await TaggingDataFormReportRequestHandler.Handle(organizationId, request),
                 "TurtleTagReport" => await TurtleTagReportRequestHandler.Handle(organizationId, request),
                 _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidReportId(reportId)),

@@ -71,12 +71,17 @@ namespace RosterApiLambda
 
             body.data = reportId switch
             {
-                //"MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Hatchlings.pdf",
-                //"MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => "MASTER - Marine Turtle Captive Facility Quarterly Report For Washbacks.pdf",
-                //"MarineTurtleHoldingFacilityQuarterlyReport" => "MASTER - Marine Turtle Holding Facility Quarterly Report.pdf",
-                "HatchlingsAndWashbacksByCountyReport" => await HatchlingsAndWashbacksByCountyReportRequestHandler.Handle(organizationId, request),
+                /* FWC REPORTS (PDF) */
+                //"MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => await MarineTurtleCaptiveFacilityQuarterlyReportForHatchlingsRequestHandler.Handle(organizationId, request),
+                //"MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => await MarineTurtleCaptiveFacilityQuarterlyReportForWashbacksRequestHandler.Handle(organizationId, request),
+                //"MarineTurtleHoldingFacilityQuarterlyReport" => await MarineTurtleHoldingFacilityQuarterlyReportRequestHandler.Handle(organizationId, request),
                 "TaggingDataForm" => await TaggingDataFormReportRequestHandler.Handle(organizationId, request),
+
+                /* OTHER REPORTS (HTML) */
+                "HatchlingsAndWashbacksByCountyReport" => await HatchlingsAndWashbacksByCountyReportRequestHandler.Handle(organizationId, request),
+                "TurtleInjuryReport" => await TurtleInjuryReportRequestHandler.Handle(organizationId, request),
                 "TurtleTagReport" => await TurtleTagReportRequestHandler.Handle(organizationId, request),
+
                 _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidReportId(reportId)),
             };
 

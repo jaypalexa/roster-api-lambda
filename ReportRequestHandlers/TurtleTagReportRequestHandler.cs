@@ -23,7 +23,7 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             foreach (var seaTurtle in seaTurtles)
             {
-                var item = new DetailItemDto
+                var detailItem = new DetailItemDto
                 {
                     seaTurtleId = seaTurtle.seaTurtleId,
                     sidNumber = seaTurtle.sidNumber,
@@ -42,13 +42,13 @@ namespace RosterApiLambda.ReportRequestHandlers
                     || (reportOptions.isRrf && x.location == "RRF")
                 ).ToList();
                 var orderedTags = seaTurtleTags.OrderBy(x => x.tagType != "PIT").ThenBy(x => x.location);
-                item.tags = orderedTags.Select(x => new DetailItemTagDto { label = x.tagType == "PIT" ? "PIT" : x.location, tagNumber = x.tagNumber, dateTagged = x.dateTagged }).ToList();
+                detailItem.tags = orderedTags.Select(x => new DetailItemTagDto { label = x.tagType == "PIT" ? "PIT" : x.location, tagNumber = x.tagNumber, dateTagged = x.dateTagged }).ToList();
 
                 var includeItem = false;
                 switch (reportOptions.filterDateType)
                 {
                     case "dateTagged":
-                        includeItem = item.tags.Any(x => !string.IsNullOrEmpty(x.dateTagged)
+                        includeItem = detailItem.tags.Any(x => !string.IsNullOrEmpty(x.dateTagged)
                             && (reportOptions.dateFrom.CompareTo(x.dateTagged) <= 0 && x.dateTagged.CompareTo(reportOptions.dateThru) <= 0));
                         break;
                     case "dateAcquired":
@@ -73,7 +73,7 @@ namespace RosterApiLambda.ReportRequestHandlers
 
                 if (includeItem)
                 {
-                    response.detailItems.Add(item);
+                    response.detailItems.Add(detailItem);
                 }
             }
 

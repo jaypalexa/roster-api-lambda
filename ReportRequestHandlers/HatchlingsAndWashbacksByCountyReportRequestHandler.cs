@@ -38,37 +38,37 @@ namespace RosterApiLambda.ReportRequestHandlers
             {
                 var hatchlingsEventsForCounty = hatchlingsEvents.Where(x => x.eventCounty == countyName);
 
-                int getHatchlingsEventCount(string[] species, string eventType) =>
+                int GetHatchlingsEventCount(string[] species, string eventType) =>
                     hatchlingsEventsForCounty
                         .Where(x => (species.Length == 0 || species.Contains(x.species)) && x.eventType == eventType)
                         .Sum(x => x.eventCount + x.beachEventCount + x.offshoreEventCount);
 
                 var washbacksEventsForCounty = washbacksEvents.Where(x => x.eventCounty == countyName);
 
-                int getWashbacksEventCount(string[] species, string eventType, bool under5cmClsl) =>
+                int GetWashbacksEventCount(string[] species, string eventType, bool under5cmClsl) =>
                     washbacksEventsForCounty
                         .Where(x => (species.Length == 0 || species.Contains(x.species)) && x.eventType == eventType && x.under5cmClsl == under5cmClsl)
                         .Sum(x => x.eventCount + x.beachEventCount + x.offshoreEventCount);
 
-                DetailItemDto getSpeciesCounts(string[] species) => 
+                DetailItemDto GetSpeciesCounts(string[] species) => 
                     new DetailItemDto
                     {
-                        hatchlingsAcquired = getHatchlingsEventCount(species, "Acquired"),
-                        hatchlingsDoa = getHatchlingsEventCount(species, "DOA"),
-                        washbacksUnder5cmAcquired = getWashbacksEventCount(species, "Acquired", true),
-                        washbacksOver5cmAcquired = getWashbacksEventCount(species, "Acquired", false),
-                        washbacksUnder5cmDoa = getWashbacksEventCount(species, "DOA", true),
-                        washbacksOver5cmDoa = getWashbacksEventCount(species, "DOA", false),
+                        hatchlingsAcquired = GetHatchlingsEventCount(species, "Acquired"),
+                        hatchlingsDoa = GetHatchlingsEventCount(species, "DOA"),
+                        washbacksUnder5cmAcquired = GetWashbacksEventCount(species, "Acquired", true),
+                        washbacksOver5cmAcquired = GetWashbacksEventCount(species, "Acquired", false),
+                        washbacksUnder5cmDoa = GetWashbacksEventCount(species, "DOA", true),
+                        washbacksOver5cmDoa = GetWashbacksEventCount(species, "DOA", false),
                     };
 
                 var countyCount = new CountyCountDto() { countyName = countyName };
 
-                countyCount.ccCount = getSpeciesCounts(new[] { "CC" });
-                countyCount.cmCount = getSpeciesCounts(new[] { "CM" });
-                countyCount.dcCount = getSpeciesCounts(new[] { "DC" });
-                countyCount.otherCount = getSpeciesCounts(new[] { "LK", "LO", "EI", "HB" });
-                countyCount.unknownCount = getSpeciesCounts(new[] { "XX", "", null });
-                countyCount.totalCount = getSpeciesCounts(new string[] { });
+                countyCount.ccCount = GetSpeciesCounts(new[] { "CC" });
+                countyCount.cmCount = GetSpeciesCounts(new[] { "CM" });
+                countyCount.dcCount = GetSpeciesCounts(new[] { "DC" });
+                countyCount.otherCount = GetSpeciesCounts(new[] { "LK", "LO", "EI", "HB" });
+                countyCount.unknownCount = GetSpeciesCounts(new[] { "XX", "", null });
+                countyCount.totalCount = GetSpeciesCounts(new string[] { });
 
                 response.countyCounts.Add(countyCount);
 

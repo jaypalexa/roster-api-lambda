@@ -72,8 +72,8 @@ namespace RosterApiLambda
             body.data = reportId switch
             {
                 /* FWC REPORTS (PDF) */
-                //"MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => await MarineTurtleCaptiveFacilityQuarterlyReportForHatchlingsRequestHandler.Handle(organizationId, request),
-                //"MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => await MarineTurtleCaptiveFacilityQuarterlyReportForWashbacksRequestHandler.Handle(organizationId, request),
+                "MarineTurtleCaptiveFacilityQuarterlyReportForHatchlings" => await MarineTurtleCaptiveFacilityQuarterlyReportRequestHandler.Handle(organizationId, request),
+                "MarineTurtleCaptiveFacilityQuarterlyReportForWashbacks" => await MarineTurtleCaptiveFacilityQuarterlyReportRequestHandler.Handle(organizationId, request),
                 //"MarineTurtleHoldingFacilityQuarterlyReport" => await MarineTurtleHoldingFacilityQuarterlyReportRequestHandler.Handle(organizationId, request),
                 "TaggingDataForm" => await TaggingDataFormReportRequestHandler.Handle(organizationId, request),
 

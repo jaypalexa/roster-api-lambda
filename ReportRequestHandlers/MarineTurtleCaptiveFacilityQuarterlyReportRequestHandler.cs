@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Amazon.Runtime;
 using AutoMapper;
 using iTextSharp.text.pdf;
 using RosterApiLambda.Dtos;
@@ -61,7 +60,8 @@ namespace RosterApiLambda.ReportRequestHandlers
             };
             var categories = items.Keys;
 
-            var config = new MapperConfiguration(cfg => {
+            var config = new MapperConfiguration(cfg =>
+            {
                 cfg.CreateMap<HatchlingsEventModel, ReportEvent>();
                 cfg.CreateMap<WashbacksEventModel, ReportEvent>();
             });

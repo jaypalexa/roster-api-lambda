@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Dtos.ReportOptions;
 using RosterApiLambda.Dtos.ReportResponses.HatchlingsAndWashbacksByCountyReport;
+using RosterApiLambda.Helpers;
 using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
@@ -63,11 +64,11 @@ namespace RosterApiLambda.ReportRequestHandlers
 
                 var countyCount = new CountyCountDto() { countyName = countyName };
 
-                countyCount.ccCount = GetSpeciesCounts(new[] { "CC" });
-                countyCount.cmCount = GetSpeciesCounts(new[] { "CM" });
-                countyCount.dcCount = GetSpeciesCounts(new[] { "DC" });
-                countyCount.otherCount = GetSpeciesCounts(new[] { "LK", "LO", "EI", "HB" });
-                countyCount.unknownCount = GetSpeciesCounts(new[] { "XX", "", null });
+                countyCount.ccCount = GetSpeciesCounts(ReportHelper.speciesCc);
+                countyCount.cmCount = GetSpeciesCounts(ReportHelper.speciesCm);
+                countyCount.dcCount = GetSpeciesCounts(ReportHelper.speciesDc);
+                countyCount.otherCount = GetSpeciesCounts(ReportHelper.speciesOther);
+                countyCount.unknownCount = GetSpeciesCounts(ReportHelper.speciesUnknown);
                 countyCount.totalCount = GetSpeciesCounts(new string[] { });
 
                 response.countyCounts.Add(countyCount);

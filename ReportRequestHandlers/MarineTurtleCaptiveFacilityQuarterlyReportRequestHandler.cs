@@ -1,11 +1,17 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Amazon.Runtime;
+using AutoMapper;
 using iTextSharp.text.pdf;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Dtos.ReportOptions;
+using RosterApiLambda.Extensions;
+using RosterApiLambda.Helpers;
 using RosterApiLambda.Models;
 using RosterApiLambda.Services;
 
@@ -29,25 +35,62 @@ namespace RosterApiLambda.ReportRequestHandlers
             var organization = await organizationService.GetOrganization();
             var organizationAndPermitNumber = $"{organization.organizationName} - {organization.permitNumber}";
 
-            //var seaTurtleService = new SeaTurtleService(organizationId);
-            //var seaTurtle = await seaTurtleService.GetSeaTurtle(reportOptions.seaTurtleId);
+            string monthsAndYearOfReport;
+            var dateFrom = new DateTime(Convert.ToInt32(reportOptions.dateFrom.Substring(0, 4)), Convert.ToInt32(reportOptions.dateFrom.Substring(5, 2)), Convert.ToInt32(reportOptions.dateFrom.Substring(8, 2)));
+            var dateThru = new DateTime(Convert.ToInt32(reportOptions.dateThru.Substring(0, 4)), Convert.ToInt32(reportOptions.dateThru.Substring(5, 2)), Convert.ToInt32(reportOptions.dateThru.Substring(8, 2)));
 
-            //var seaTurtleTagService = new SeaTurtleTagService(organizationId, reportOptions.seaTurtleId);
-            //var seaTurtleTags = await seaTurtleTagService.GetSeaTurtleTags();
+            if (dateFrom.Year == dateThru.Year)
+            {
+                monthsAndYearOfReport = $"{dateFrom:dd} {dateFrom:MMMM} - {dateThru:dd} {dateThru:MMMM} {dateThru.Year}";
+            }
+            else
+            {
+                monthsAndYearOfReport = $"{dateFrom:dd} {dateFrom:MMMM} {dateFrom.Year} - {dateThru:dd} {dateThru:MMMM} {dateThru.Year}";
+            }
 
-            //var seaTurtleMorphometricService = new SeaTurtleMorphometricService(organizationId, reportOptions.seaTurtleId);
-            //var seaTurtleMorphometrics = await seaTurtleMorphometricService.GetSeaTurtleMorphometrics();
+            var balanceAsOfDate = reportOptions.subjectType == "Hatchlings" ? organization.hatchlingsBalanceAsOfDate : organization.washbacksBalanceAsOfDate;
+            var useOrganizationStartingBalances = !string.IsNullOrEmpty(balanceAsOfDate) && balanceAsOfDate.CompareTo(reportOptions.dateFrom) <= 0;
 
-            //var nonPitTags = seaTurtleTags.Where(x => x.tagType != "PIT" && !string.IsNullOrWhiteSpace(x.tagNumber));
+            var items = new Dictionary<string, ReportItem>
+            {
+                { "Cc", new ReportItem(ReportHelper.speciesCc) },
+                { "Cm", new ReportItem(ReportHelper.speciesCm) },
+                { "Dc", new ReportItem(ReportHelper.speciesDc) },
+                { "Other", new ReportItem(ReportHelper.speciesOther) },
+                { "Unknown", new ReportItem(ReportHelper.speciesUnknown) }
+            };
+            var categories = items.Keys;
 
-            //var flipperTagLeftFront = string.Join(", ", nonPitTags.Where(x => x.location == "LFF").Select(x => x.tagNumber));
-            //var flipperTagRightFront = string.Join(", ", nonPitTags.Where(x => x.location == "RFF").Select(x => x.tagNumber));
-            //var flipperTagLeftRear = string.Join(", ", nonPitTags.Where(x => x.location == "LRF").Select(x => x.tagNumber));
-            //var flipperTagRightRear = string.Join(", ", nonPitTags.Where(x => x.location == "RRF").Select(x => x.tagNumber));
+            var config = new MapperConfiguration(cfg => {
+                cfg.CreateMap<HatchlingsEventModel, ReportEvent>();
+                cfg.CreateMap<WashbacksEventModel, ReportEvent>();
+            });
+            var mapper = new Mapper(config);
 
-            //var pitTags = seaTurtleTags.Where(x => x.tagType == "PIT");
-            //var pitTagNumber = string.Join(", ", pitTags.Where(x => !string.IsNullOrWhiteSpace(x.tagNumber)).Select(x => x.tagNumber));
-            //var pitTagLocation = string.Join(", ", pitTags.Where(x => !string.IsNullOrWhiteSpace(x.location)).Select(x => x.location));
+            var hatchlingsEventService = new HatchlingsEventService(organizationId);
+            var washbacksEventService = new WashbacksEventService(organizationId);
+            var events = reportOptions.subjectType == "Hatchlings"
+                ? (await hatchlingsEventService.GetHatchlingsEvents()).Select(x => mapper.Map<ReportEvent>(x))
+                : (await washbacksEventService.GetWashbacksEvents()).Select(x => mapper.Map<ReportEvent>(x));
+
+            int GetCountsPriorToThisPeriod(string[] eventTypes, string[] species) =>
+                events
+                   .Where(x => eventTypes.Contains(x.eventType) && species.Contains(x.species))
+                   .Where(x => x.eventDate.CompareTo(reportOptions.dateFrom) <= 0)
+                   .Where(x => !string.IsNullOrEmpty(balanceAsOfDate) && balanceAsOfDate.CompareTo(x.eventDate) <= 0)
+                   .Sum(x => x.eventCount + x.beachEventCount + x.offshoreEventCount);
+
+            int GetCountsForThisPeriod(string eventType, string[] species, string eventCountType = null) =>
+                events
+                   .Where(x => x.eventType == eventType && species.Contains(x.species))
+                   .Where(x => reportOptions.dateFrom.CompareTo(x.eventDate) <= 0)
+                   .Where(x => x.eventDate.CompareTo(reportOptions.dateThru) <= 0)
+                   .Sum(x => eventCountType == "beachEventCount" ? x.beachEventCount : (eventCountType == "offshoreEventCount" ? x.offshoreEventCount : x.eventCount));
+
+            int GetStartingBalance(string category) =>
+                useOrganizationStartingBalances
+                    ? Convert.ToInt32(organization.GetType().GetProperty($"{category.ToLower()}{reportOptions.subjectType}StartingBalance").GetValue(organization))
+                    : 0;
 
             //----------------------------------------------------------------------------------------------------
 
@@ -64,18 +107,40 @@ namespace RosterApiLambda.ReportRequestHandlers
             var acroFields = pdfStamper.AcroFields;
 
             acroFields.SetField("txtOrganizationAndPermitNumber", organizationAndPermitNumber);
+            acroFields.SetField("txtMonthsAndYearOfReport", monthsAndYearOfReport);
 
-            //acroFields.SetField("txtSID", reportOptions.printSidOnForm ? $"SID:  {seaTurtle.sidNumber}" : string.Empty);
-            //acroFields.SetField("txtSpecies", seaTurtle.species);
+            var sbComments = new StringBuilder();
 
-            //if (!string.IsNullOrEmpty(seaTurtle.dateRelinquished))
-            //{
-            //    acroFields.SetField("txtDateReleasedDay", seaTurtle.dateRelinquished.Substring(8, 2));
-            //    acroFields.SetField("txtDateReleasedMonth", seaTurtle.dateRelinquished.Substring(5, 2));
-            //    acroFields.SetField("txtDateReleasedYear", seaTurtle.dateRelinquished.Substring(0, 4));
-            //}
+            foreach (var category in categories)
+            {
+                var item = items[category];
 
-            //acroFields.SetField("txtFlipperTagLeftFront", flipperTagLeftFront);
+                item.StartingBalance = GetStartingBalance(category);
+
+                item.AdditionsBeforeThisPeriod = GetCountsPriorToThisPeriod(new[] { "Acquired" }, item.SpeciesSelector);
+                item.SubtractionsBeforeThisPeriod = GetCountsPriorToThisPeriod(new[] { "Died", "Released" }, item.SpeciesSelector);
+                item.AcquiredThisPeriod = GetCountsForThisPeriod("Acquired", item.SpeciesSelector);
+                item.DiedThisPeriod = GetCountsForThisPeriod("Died", item.SpeciesSelector);
+                item.ReleasedOnTheBeachThisPeriod = GetCountsForThisPeriod("Released", item.SpeciesSelector, "beachEventCount");
+                item.ReleasedOffshoreThisPeriod = GetCountsForThisPeriod("Released", item.SpeciesSelector, "offshoreEventCount");
+                item.DoaThisPeriod = GetCountsForThisPeriod("DOA", item.SpeciesSelector);
+
+                item.PreviousBalance = item.StartingBalance + item.AdditionsBeforeThisPeriod - item.SubtractionsBeforeThisPeriod;
+                acroFields.SetField($"txt{category}PrevBal", item.PreviousBalance);
+                acroFields.SetField($"txt{category}Acquired", item.AcquiredThisPeriod);
+                acroFields.SetField($"txt{category}Died", item.DiedThisPeriod);
+                acroFields.SetField($"txt{category}Released", item.ReleasedOnTheBeachThisPeriod + item.ReleasedOffshoreThisPeriod);
+                acroFields.SetField($"txt{category}EndBal", item.PreviousBalance + item.AcquiredThisPeriod - item.DiedThisPeriod - item.ReleasedOnTheBeachThisPeriod - item.ReleasedOffshoreThisPeriod);
+                acroFields.SetField($"txt{category}BeachVsOffshore", $"Beach: {item.ReleasedOnTheBeachThisPeriod}{Environment.NewLine}Offshore: {item.ReleasedOffshoreThisPeriod}");
+
+                if (reportOptions.includeDoaCounts)
+                {
+                    sbComments.AppendLine($"DOA {category} hatchlings = {item.DoaThisPeriod}");
+                }
+            }
+
+            sbComments.AppendLine(reportOptions.comments);
+            acroFields.SetField("txtComments", sbComments.ToString());
 
             // =============================================================================
 
@@ -87,5 +152,34 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             return bytes;
         }
+    }
+
+    public class ReportItem
+    {
+        public string[] SpeciesSelector { get; }
+        public int StartingBalance { get; set; }
+        public int AdditionsBeforeThisPeriod { get; set; }
+        public int SubtractionsBeforeThisPeriod { get; set; }
+        public int AcquiredThisPeriod { get; set; }
+        public int DiedThisPeriod { get; set; }
+        public int ReleasedOnTheBeachThisPeriod { get; set; }
+        public int ReleasedOffshoreThisPeriod { get; set; }
+        public int DoaThisPeriod { get; set; }
+        public int PreviousBalance { get; set; }
+
+        public ReportItem(string[] speciesSelector)
+        {
+            SpeciesSelector = speciesSelector;
+        }
+    }
+
+    public class ReportEvent
+    {
+        public string eventType { get; set; }
+        public string species { get; set; }
+        public string eventDate { get; set; }
+        public int eventCount { get; set; }
+        public int beachEventCount { get; set; }
+        public int offshoreEventCount { get; set; }
     }
 }

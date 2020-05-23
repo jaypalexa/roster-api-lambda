@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Dtos.ReportOptions;
 using RosterApiLambda.Dtos.ReportResponses.TurtleInjuryReport;
+using RosterApiLambda.Models;
 using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
@@ -40,16 +41,16 @@ namespace RosterApiLambda.ReportRequestHandlers
                 };
             }
 
-            response.summaryItems.Add(GetSummaryItem("Boat/Propeller strike", "injuryBoatStrike"));
-            response.summaryItems.Add(GetSummaryItem("Intestinal impaction", "injuryIntestinalImpaction"));
-            response.summaryItems.Add(GetSummaryItem("Line/Net entanglement", "injuryLineEntanglement"));
-            response.summaryItems.Add(GetSummaryItem("Fish hook", "injuryFishHook"));
-            response.summaryItems.Add(GetSummaryItem("Upper respiratory", "injuryUpperRespiratory"));
-            response.summaryItems.Add(GetSummaryItem("Shark/Bird bite", "injuryAnimalBite"));
-            response.summaryItems.Add(GetSummaryItem("Fibropapilloma", "injuryFibropapilloma"));
-            response.summaryItems.Add(GetSummaryItem("Misc. epidemic", "injuryMiscEpidemic"));
-            response.summaryItems.Add(GetSummaryItem("DOA", "injuryDoa"));
-            response.summaryItems.Add(GetSummaryItem("Other", "injuryOther"));
+            response.summaryItems.Add(GetSummaryItem("Boat/Propeller strike", nameof(SeaTurtleModel.injuryBoatStrike)));
+            response.summaryItems.Add(GetSummaryItem("Intestinal impaction", nameof(SeaTurtleModel.injuryIntestinalImpaction)));
+            response.summaryItems.Add(GetSummaryItem("Line/Net entanglement", nameof(SeaTurtleModel.injuryLineEntanglement)));
+            response.summaryItems.Add(GetSummaryItem("Fish hook", nameof(SeaTurtleModel.injuryFishHook)));
+            response.summaryItems.Add(GetSummaryItem("Upper respiratory", nameof(SeaTurtleModel.injuryUpperRespiratory)));
+            response.summaryItems.Add(GetSummaryItem("Shark/Bird bite", nameof(SeaTurtleModel.injuryAnimalBite)));
+            response.summaryItems.Add(GetSummaryItem("Fibropapilloma", nameof(SeaTurtleModel.injuryFibropapilloma)));
+            response.summaryItems.Add(GetSummaryItem("Misc. epidemic", nameof(SeaTurtleModel.injuryMiscEpidemic)));
+            response.summaryItems.Add(GetSummaryItem("DOA", nameof(SeaTurtleModel.injuryDoa)));
+            response.summaryItems.Add(GetSummaryItem("Other", nameof(SeaTurtleModel.injuryOther)));
 
             var noneCount = seaTurtles.Count(x => 
                 !x.injuryBoatStrike && !x.injuryIntestinalImpaction && !x.injuryLineEntanglement

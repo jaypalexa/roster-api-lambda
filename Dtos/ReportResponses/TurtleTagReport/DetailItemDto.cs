@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 
-namespace RosterApiLambda.Dtos.ReportResponses
+namespace RosterApiLambda.Dtos.ReportResponses.TurtleTagReport
 {
-    public class TurtleTagReportDetailItemDto
+    public class DetailItemDto
     {
-        public TurtleTagReportDetailItemDto()
+        public DetailItemDto()
         {
-            tags = new List<TurtleTagReportDetailItemTagDto>();
+            tags = new List<DetailItemTagDto>();
         }
 
         public string seaTurtleId { get; set; }
@@ -14,6 +14,6 @@ namespace RosterApiLambda.Dtos.ReportResponses
         public string seaTurtleName { get; set; }
         public string dateRelinquished { get; set; }
         public string strandingIdNumber { get; set; }
-        public List<TurtleTagReportDetailItemTagDto> tags { get; set; }
+        public List<DetailItemTagDto> tags { get; set; }
     }
 }

@@ -1,6 +1,6 @@
-﻿namespace RosterApiLambda.Dtos.ReportResponses
+﻿namespace RosterApiLambda.Dtos.ReportResponses.HatchlingsAndWashbacksByCountyReport
 {
-    public class HatchlingsAndWashbacksByCountyReportDetailItemDto
+    public class DetailItemDto
     {
         public int hatchlingsAcquired { get; set; }
         public int hatchlingsDoa { get; set; }
@@ -9,7 +9,7 @@
         public int washbacksUnder5cmDoa { get; set; }
         public int washbacksOver5cmDoa { get; set; }
 
-        public void AppendCounts(HatchlingsAndWashbacksByCountyReportDetailItemDto from)
+        public void AppendCounts(DetailItemDto from)
         {
             hatchlingsAcquired += from.hatchlingsAcquired;
             hatchlingsDoa += from.hatchlingsDoa;

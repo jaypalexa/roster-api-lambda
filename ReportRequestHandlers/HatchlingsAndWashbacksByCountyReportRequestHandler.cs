@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Dtos.ReportOptions;
-using RosterApiLambda.Dtos.ReportResponses;
+using RosterApiLambda.Dtos.ReportResponses.HatchlingsAndWashbacksByCountyReport;
 using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
@@ -12,7 +12,7 @@ namespace RosterApiLambda.ReportRequestHandlers
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
-            var response = new HatchlingsAndWashbacksByCountyReportContentDto();
+            var response = new ContentDto();
 
             var reportOptions = JsonSerializer.Deserialize<ReportOptionsDateRangeDto>(request.body.GetRawText());
             reportOptions.dateFrom ??= "0000-00-00";
@@ -32,7 +32,7 @@ namespace RosterApiLambda.ReportRequestHandlers
                 .Where(x => !string.IsNullOrEmpty(x))
                 .OrderBy(x => x).ToList();
 
-            var allCountiesCount = new HatchlingsAndWashbacksByCountyReportCountyCountDto() { countyName = "ALL COUNTIES" };
+            var allCountiesCount = new CountyCountDto() { countyName = "ALL COUNTIES" };
 
             foreach (var countyName in countyNames)
             {
@@ -50,8 +50,8 @@ namespace RosterApiLambda.ReportRequestHandlers
                         .Where(x => (species.Length == 0 || species.Contains(x.species)) && x.eventType == eventType && x.under5cmClsl == under5cmClsl)
                         .Sum(x => x.eventCount + x.beachEventCount + x.offshoreEventCount);
 
-                HatchlingsAndWashbacksByCountyReportDetailItemDto getSpeciesCounts(string[] species) => 
-                    new HatchlingsAndWashbacksByCountyReportDetailItemDto
+                DetailItemDto getSpeciesCounts(string[] species) => 
+                    new DetailItemDto
                     {
                         hatchlingsAcquired = getHatchlingsEventCount(species, "Acquired"),
                         hatchlingsDoa = getHatchlingsEventCount(species, "DOA"),
@@ -61,7 +61,7 @@ namespace RosterApiLambda.ReportRequestHandlers
                         washbacksOver5cmDoa = getWashbacksEventCount(species, "DOA", false),
                     };
 
-                var countyCount = new HatchlingsAndWashbacksByCountyReportCountyCountDto() { countyName = countyName };
+                var countyCount = new CountyCountDto() { countyName = countyName };
 
                 countyCount.ccCount = getSpeciesCounts(new[] { "CC" });
                 countyCount.cmCount = getSpeciesCounts(new[] { "CM" });

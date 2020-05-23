@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Dtos.ReportOptions;
-using RosterApiLambda.Dtos.ReportResponses;
+using RosterApiLambda.Dtos.ReportResponses.TurtleTagReport;
 using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
@@ -12,7 +12,7 @@ namespace RosterApiLambda.ReportRequestHandlers
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
-            var response = new TurtleTagReportContentDto();
+            var response = new ContentDto();
 
             var reportOptions = JsonSerializer.Deserialize<TurtleTagReportOptionsDto>(request.body.GetRawText());
             reportOptions.dateFrom ??= "0000-00-00";
@@ -23,7 +23,7 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             foreach (var seaTurtle in seaTurtles)
             {
-                var item = new TurtleTagReportDetailItemDto
+                var item = new DetailItemDto
                 {
                     seaTurtleId = seaTurtle.seaTurtleId,
                     sidNumber = seaTurtle.sidNumber,
@@ -42,7 +42,7 @@ namespace RosterApiLambda.ReportRequestHandlers
                     || (reportOptions.isRrf && x.location == "RRF")
                 ).ToList();
                 var orderedTags = seaTurtleTags.OrderBy(x => x.tagType != "PIT").ThenBy(x => x.location);
-                item.tags = orderedTags.Select(x => new TurtleTagReportDetailItemTagDto { label = x.tagType == "PIT" ? "PIT" : x.location, tagNumber = x.tagNumber, dateTagged = x.dateTagged }).ToList();
+                item.tags = orderedTags.Select(x => new DetailItemTagDto { label = x.tagType == "PIT" ? "PIT" : x.location, tagNumber = x.tagNumber, dateTagged = x.dateTagged }).ToList();
 
                 var includeItem = false;
                 switch (reportOptions.filterDateType)

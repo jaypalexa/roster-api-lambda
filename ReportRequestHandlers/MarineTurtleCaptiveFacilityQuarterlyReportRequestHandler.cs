@@ -50,28 +50,28 @@ namespace RosterApiLambda.ReportRequestHandlers
             var balanceAsOfDate = reportOptions.subjectType == "Hatchlings" ? organization.hatchlingsBalanceAsOfDate : organization.washbacksBalanceAsOfDate;
             var useOrganizationStartingBalances = !string.IsNullOrEmpty(balanceAsOfDate) && balanceAsOfDate.CompareTo(reportOptions.dateFrom) <= 0;
 
-            var items = new Dictionary<string, ReportItem>
+            var items = new Dictionary<string, CaptiveFacilityReportItem>
             {
-                { "Cc", new ReportItem(ReportHelper.speciesCc) },
-                { "Cm", new ReportItem(ReportHelper.speciesCm) },
-                { "Dc", new ReportItem(ReportHelper.speciesDc) },
-                { "Other", new ReportItem(ReportHelper.speciesOther) },
-                { "Unknown", new ReportItem(ReportHelper.speciesUnknown) }
+                { "Cc", new CaptiveFacilityReportItem(ReportHelper.speciesCc) },
+                { "Cm", new CaptiveFacilityReportItem(ReportHelper.speciesCm) },
+                { "Dc", new CaptiveFacilityReportItem(ReportHelper.speciesDc) },
+                { "Other", new CaptiveFacilityReportItem(ReportHelper.speciesOther) },
+                { "Unknown", new CaptiveFacilityReportItem(ReportHelper.speciesUnknown) }
             };
             var categories = items.Keys;
 
             var config = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMap<HatchlingsEventModel, ReportEvent>();
-                cfg.CreateMap<WashbacksEventModel, ReportEvent>();
+                cfg.CreateMap<HatchlingsEventModel, CaptiveFacilityReportEvent>();
+                cfg.CreateMap<WashbacksEventModel, CaptiveFacilityReportEvent>();
             });
             var mapper = new Mapper(config);
 
             var hatchlingsEventService = new HatchlingsEventService(organizationId);
             var washbacksEventService = new WashbacksEventService(organizationId);
             var events = reportOptions.subjectType == "Hatchlings"
-                ? (await hatchlingsEventService.GetHatchlingsEvents()).Select(x => mapper.Map<ReportEvent>(x))
-                : (await washbacksEventService.GetWashbacksEvents()).Select(x => mapper.Map<ReportEvent>(x));
+                ? (await hatchlingsEventService.GetHatchlingsEvents()).Select(x => mapper.Map<CaptiveFacilityReportEvent>(x))
+                : (await washbacksEventService.GetWashbacksEvents()).Select(x => mapper.Map<CaptiveFacilityReportEvent>(x));
 
             int GetCountsPriorToThisPeriod(string[] eventTypes, string[] species) =>
                 events
@@ -154,7 +154,7 @@ namespace RosterApiLambda.ReportRequestHandlers
         }
     }
 
-    public class ReportItem
+    public class CaptiveFacilityReportItem
     {
         public string[] SpeciesSelector { get; }
         public int StartingBalance { get; set; }
@@ -167,13 +167,13 @@ namespace RosterApiLambda.ReportRequestHandlers
         public int DoaThisPeriod { get; set; }
         public int PreviousBalance { get; set; }
 
-        public ReportItem(string[] speciesSelector)
+        public CaptiveFacilityReportItem(string[] speciesSelector)
         {
             SpeciesSelector = speciesSelector;
         }
     }
 
-    public class ReportEvent
+    public class CaptiveFacilityReportEvent
     {
         public string eventType { get; set; }
         public string species { get; set; }

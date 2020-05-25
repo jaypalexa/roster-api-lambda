@@ -32,8 +32,6 @@ namespace RosterApiLambda.ReportRequestHandlers
             var reportOptions = JsonSerializer.Deserialize<MarineTurtleHoldingFacilityQuarterlyReportOptionsDto>(request.body.GetRawText());
             reportOptions.dateFrom ??= "0000-00-00";
             reportOptions.dateThru ??= "9999-99-99";
-            LambdaLogger.Log($"reportOptions.dateFrom:  {reportOptions.dateFrom}\r\n");
-            LambdaLogger.Log($"reportOptions.dateThru:  {reportOptions.dateThru}\r\n");
 
             var organizationService = new OrganizationService(organizationId);
             var organization = await organizationService.GetOrganization();
@@ -191,8 +189,6 @@ namespace RosterApiLambda.ReportRequestHandlers
             //-- if the DATE ACQUIRED is within the date range of the report, 
             //-- then do display the ACQUIRED FROM information
             //----------------------------------------------------------------
-            LambdaLogger.Log($"seaTurtle.dateAcquired:  {seaTurtle.dateAcquired}\r\n");
-            LambdaLogger.Log($"(dateThru.Date - dateFrom.Date).Days:  {(dateThru.Date - dateFrom.Date).Days}\r\n");
             if (reportOptions.includeAcquiredFrom && !string.IsNullOrEmpty(seaTurtle.dateAcquired) && ((dateThru.Date - dateFrom.Date).Days <= 95))
             {
                 if ((reportOptions.dateFrom.CompareTo(seaTurtle.dateAcquired) <= 0) && (seaTurtle.dateAcquired.CompareTo(reportOptions.dateThru) <= 0))
@@ -239,7 +235,6 @@ namespace RosterApiLambda.ReportRequestHandlers
                     sidNumberAndSeaTurtleName += $" - {item.seaTurtleName}";
                 }
                 acroFields.SetField($"txtSID{fieldNumber}", sidNumberAndSeaTurtleName);
-                LambdaLogger.Log($"sidNumberAndSeaTurtleName:  {sidNumberAndSeaTurtleName}\r\n");
 
                 acroFields.SetField($"cboSpecies{fieldNumber}", item.species);
 
@@ -253,10 +248,6 @@ namespace RosterApiLambda.ReportRequestHandlers
                 // -- if the DATE RELINQUISHED is later than the report date, 
                 // -- then do NOT display the relinquished information
                 // ----------------------------------------------------------------
-                LambdaLogger.Log($"item.dateRelinquished:  {item.dateRelinquished}\r\n");
-                LambdaLogger.Log($"reportOptions:  {reportOptions}\r\n");
-                LambdaLogger.Log($"reportOptions.dateThru:  {reportOptions.dateThru}\r\n");
-
                 var showRelinquishedInfo = item.dateRelinquished.CompareTo(reportOptions.dateThru) <= 0;
 
                 acroFields.SetField($"txtDateRelinquished{fieldNumber}", showRelinquishedInfo ? item.dateRelinquished : string.Empty);

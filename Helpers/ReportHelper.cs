@@ -51,8 +51,6 @@ namespace RosterApiLambda.Helpers
 
         public static void ConcatenatePdfFiles(List<string> fromFileNames, string toFileName)
         {
-            LambdaLogger.Log($"toFileName:  {toFileName}\r\n");
-
             var pageOffset = 0;
             var master = new ArrayList();
             var f = 0;
@@ -61,8 +59,6 @@ namespace RosterApiLambda.Helpers
 
             foreach (var fromFileName in fromFileNames)
             {
-                LambdaLogger.Log($"fromFileName:  {fromFileName}\r\n");
-
                 // we create a reader for a certain document
                 var reader = new PdfReader(fromFileName);
                 reader.ConsolidateNamedDestinations();

@@ -11,7 +11,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
 {
-    public class TaggingDataFormReportRequestHandler
+    public static class TaggingDataFormReportRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
@@ -19,7 +19,7 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             var fileTimestamp = $"{DateTime.Now:yyyyMMddHHmmss} UTC";
 
-            var baseMasterReportFileName = "MASTER - Tagging Data form.pdf";
+            const string baseMasterReportFileName = "MASTER - Tagging Data form.pdf";
             var basePath = AppDomain.CurrentDomain.BaseDirectory;
 
             var masterReportFileName = Path.Combine(basePath, "pdf", baseMasterReportFileName);
@@ -59,10 +59,6 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             var info = pdfReader.Info;
             info["Title"] = baseMasterReportFileName.Replace("MASTER - ", "").Replace(".pdf", $" - {fileTimestamp}.pdf");
-            //info["Subject"] = "NEW SUBJECT";
-            //info["Keywords"] = "KEYWORD1, KEYWORD2";
-            //info["Creator"] = "NEW CREATOR";
-            //info["Author"] = "NEW AUTHOR";
             pdfStamper.MoreInfo = info;
 
             var acroFields = pdfStamper.AcroFields;

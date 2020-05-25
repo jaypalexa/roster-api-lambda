@@ -17,12 +17,17 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
 {
-    public class MarineTurtleHoldingFacilityQuarterlyReportRequestHandler
+    public static class MarineTurtleHoldingFacilityQuarterlyReportRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
+            const string baseMasterReportFileName_Page1 = "MASTER - Marine Turtle Holding Facility Quarterly Report Page 1.pdf";
+            const string baseMasterReportFileName_Page2 = "MASTER - Marine Turtle Holding Facility Quarterly Report Page 2.pdf";
+            const string baseMasterReportFileName_Page3 = "MASTER - Marine Turtle Holding Facility Quarterly Report Page 3.pdf";
+
             const int PAGE_1_LINES_PER_PAGE = 8;
             const int PAGE_2_LINES_PER_PAGE = 22;
+            const int PAGE_3_LINES_PER_PAGE = 34;
 
             var filledReportFileNames = new List<string>();
             var fileTimestamp = $"{DateTime.Now:yyyyMMddHHmmss} UTC";
@@ -60,11 +65,12 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             var config = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMap<SeaTurtleModel, HoldingFacilityReportItem>();
+                cfg.CreateMap<SeaTurtleModel, HoldingFacilitySeaTurtleReportItem>();
+                cfg.CreateMap<HoldingTankMeasurementModel, HoldingFacilityHoldingTankMeasurementReportItem>();
             });
             var mapper = new Mapper(config);
 
-            var items = new List<HoldingFacilityReportItem>();
+            var seaTurtleReportItems = new List<HoldingFacilitySeaTurtleReportItem>();
 
             foreach (var seaTurtle in seaTurtles)
             {
@@ -76,19 +82,50 @@ namespace RosterApiLambda.ReportRequestHandlers
                 var lines = ReportHelper.WrapLine(reportTagNumberFieldData, 92);
                 for (int i = 0; i < lines.Length; i++)
                 {
-                    var item = new HoldingFacilityReportItem();
+                    var item = new HoldingFacilitySeaTurtleReportItem();
                     if (i == 0)
                     {
-                        item = mapper.Map<HoldingFacilityReportItem>(seaTurtle);
+                        item = mapper.Map<HoldingFacilitySeaTurtleReportItem>(seaTurtle);
                     }
                     item.reportTagNumberFieldData = lines[i];
-                    items.Add(item);
+                    seaTurtleReportItems.Add(item);
                 }
             }
 
-            //-- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] --
+            var holdingTankService = new HoldingTankService(organizationId);
+            var holdingTanks = await holdingTankService.GetHoldingTanks();
+            var holdingTankMeasurementReportItems = new List<HoldingFacilityHoldingTankMeasurementReportItem>();
 
-            var baseMasterReportFileName_Page1 = $"MASTER - Marine Turtle Holding Facility Quarterly Report Page 1.pdf";
+            foreach (var holdingTank in holdingTanks)
+            {
+                var holdingTankMeasurementService = new HoldingTankMeasurementService(organizationId, holdingTank.holdingTankId);
+                var items = (await holdingTankMeasurementService.GetHoldingTankMeasurements())
+                    .Where(x => reportOptions.dateFrom.CompareTo(x.dateMeasured) <= 0 && x.dateMeasured.CompareTo(reportOptions.dateThru) <= 0)
+                    .Select(x => mapper.Map<HoldingFacilityHoldingTankMeasurementReportItem>(x))
+                    ;
+
+                foreach (var item in items)
+                {
+                    item.holdingTankName = holdingTank.holdingTankName;
+                }
+
+                holdingTankMeasurementReportItems.AddRange(items);
+            }
+
+            if (reportOptions.groupTankDataBy == "tank")
+            {
+                holdingTankMeasurementReportItems = holdingTankMeasurementReportItems
+                    .OrderBy(x => x.holdingTankName)
+                    .ThenBy(x => x.dateMeasured).ToList();
+            }
+            else
+            {
+                holdingTankMeasurementReportItems = holdingTankMeasurementReportItems
+                    .OrderBy(x => x.dateMeasured)
+                    .ThenBy(x => x.holdingTankName).ToList();
+            }
+
+            //-- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] --
 
             var masterReportFileName_Page1 = Path.Combine(basePath, "pdf", baseMasterReportFileName_Page1);
             var filledReportFileName_Page1 = Path.Combine("/tmp", baseMasterReportFileName_Page1.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp}.pdf"));
@@ -110,8 +147,8 @@ namespace RosterApiLambda.ReportRequestHandlers
                 acroFields.SetField("txtOrganizationAndPermitNumber", organizationAndPermitNumber);
                 acroFields.SetField("txtMonthsAndYearOfReport", monthsAndYearOfReport);
 
-                var pageOneItems = items.Take(PAGE_1_LINES_PER_PAGE).ToList();
-                for (int i = 0; i < pageOneItems.Count(); i++)
+                var pageOneItems = seaTurtleReportItems.Take(PAGE_1_LINES_PER_PAGE).ToList();
+                for (int i = 0; i < pageOneItems.Count; i++)
                 {
                     var item = pageOneItems[i];
                     FillSectionOneRow(acroFields, (i + 1).ToString().PadLeft(2, '0'), item, reportOptions);
@@ -123,12 +160,11 @@ namespace RosterApiLambda.ReportRequestHandlers
             pdfReader.Close();
 
             //-- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] --
-            var page2Items = items.Skip(PAGE_1_LINES_PER_PAGE).ToList().ChunkBy(PAGE_2_LINES_PER_PAGE);
 
-            for (int chunkIndex = 0; chunkIndex < page2Items.Count(); chunkIndex++)
+            var page2Items = seaTurtleReportItems.Skip(PAGE_1_LINES_PER_PAGE).ToList().ChunkBy(PAGE_2_LINES_PER_PAGE);
+
+            for (int chunkIndex = 0; chunkIndex < page2Items.Count; chunkIndex++)
             {
-                var baseMasterReportFileName_Page2 = $"MASTER - Marine Turtle Holding Facility Quarterly Report Page 2.pdf";
-
                 var masterReportFileName_Page2 = Path.Combine(basePath, "pdf", baseMasterReportFileName_Page2);
                 var filledReportFileName_Page2 = Path.Combine("/tmp", baseMasterReportFileName_Page2.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp} - {chunkIndex.ToString().PadLeft(2, '0')}.pdf"));
                 filledReportFileNames.Add(filledReportFileName_Page2);
@@ -149,7 +185,7 @@ namespace RosterApiLambda.ReportRequestHandlers
                     acroFields.SetField("txtOrganizationAndPermitNumber", organizationAndPermitNumber);
                     acroFields.SetField("txtMonthsAndYearOfReport", monthsAndYearOfReport);
 
-                    for (int i = 0; i < page2Items[chunkIndex].Count(); i++)
+                    for (int i = 0; i < page2Items[chunkIndex].Count; i++)
                     {
                         var item = page2Items[chunkIndex][i];
                         FillSectionOneRow(acroFields, (i + 1 + PAGE_1_LINES_PER_PAGE).ToString().PadLeft(2, '0'), item, reportOptions);
@@ -163,9 +199,50 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             //-- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] --
 
+            var page3Items = holdingTankMeasurementReportItems.ChunkBy(PAGE_3_LINES_PER_PAGE);
+
+            for (int chunkIndex = 0; chunkIndex < page3Items.Count; chunkIndex++)
+            {
+                var masterReportFileName_Page3 = Path.Combine(basePath, "pdf", baseMasterReportFileName_Page3);
+                var filledReportFileName_Page3 = Path.Combine("/tmp", baseMasterReportFileName_Page3.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp} - {chunkIndex.ToString().PadLeft(2, '0')}.pdf"));
+                filledReportFileNames.Add(filledReportFileName_Page3);
+
+                pdfReader = new PdfReader(masterReportFileName_Page3);
+                pdfReader.RemoveUsageRights();
+
+                using (var fs = new FileStream(filledReportFileName_Page3, FileMode.Create))
+                {
+                    var pdfStamper = new PdfStamper(pdfReader, fs, '\0', false);
+
+                    var info = pdfReader.Info;
+                    info["Title"] = baseMasterReportFileName_Page3.Replace("MASTER - ", "").Replace(".pdf", $" - {fileTimestamp}.pdf");
+                    pdfStamper.MoreInfo = info;
+
+                    var acroFields = pdfStamper.AcroFields;
+
+                    acroFields.SetField("txtOrganizationAndPermitNumber", organizationAndPermitNumber);
+                    acroFields.SetField("txtMonthsAndYearOfReport", monthsAndYearOfReport);
+
+                    for (int i = 0; i < page3Items[chunkIndex].Count; i++)
+                    {
+                        var item = page3Items[chunkIndex][i];
+                        var fieldNumber = (i + 1).ToString().PadLeft(2, '0');
+                        acroFields.SetField($"txtDate{fieldNumber}", item.dateMeasured);
+                        acroFields.SetField($"txtTank{fieldNumber}", item.holdingTankName);
+                        acroFields.SetField($"txtTemperature{fieldNumber}", item.temperature);
+                        acroFields.SetField($"txtSalinity{fieldNumber}", item.salinity);
+                        acroFields.SetField($"txtPH{fieldNumber}", item.ph);
+                    }
+
+                    pdfStamper.FormFlattening = true; // 'true' to make the PDF read-only
+                    pdfStamper.Close();
+                }
+                pdfReader.Close();
+            }
+
             // =========================================================================================================================
 
-            var masterReportFileName_Final = $"MASTER - Marine Turtle Holding Facility Quarterly Report.pdf";
+            const string masterReportFileName_Final = "MASTER - Marine Turtle Holding Facility Quarterly Report.pdf";
             var filledReportFileName_Final = Path.Combine("/tmp", masterReportFileName_Final.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp}.pdf"));
 
             ReportHelper.ConcatenatePdfFiles(filledReportFileNames, filledReportFileName_Final);
@@ -216,7 +293,7 @@ namespace RosterApiLambda.ReportRequestHandlers
             return sb.ToString();
         }
 
-        private static void FillSectionOneRow(AcroFields acroFields, string fieldNumber, HoldingFacilityReportItem item, MarineTurtleHoldingFacilityQuarterlyReportOptionsDto reportOptions)
+        private static void FillSectionOneRow(AcroFields acroFields, string fieldNumber, HoldingFacilitySeaTurtleReportItem item, MarineTurtleHoldingFacilityQuarterlyReportOptionsDto reportOptions)
         {
             // always set the status/tag number field as it may be a partial line
             acroFields.SetField($"txtTagNumber{fieldNumber}", item.reportTagNumberFieldData);
@@ -242,7 +319,6 @@ namespace RosterApiLambda.ReportRequestHandlers
 
                 acroFields.SetField($"cboSize{fieldNumber}", item.turtleSize);
                 acroFields.SetField($"cboStatus{fieldNumber}", item.status);
-
 
                 // ----------------------------------------------------------------
                 // -- if the DATE RELINQUISHED is later than the report date, 
@@ -276,10 +352,9 @@ namespace RosterApiLambda.ReportRequestHandlers
                 // *************************************************************************************************
             }
         }
-
     }
 
-    public class HoldingFacilityReportItem
+    public class HoldingFacilitySeaTurtleReportItem
     {
         public string seaTurtleId { get; set; }
         public string seaTurtleName { get; set; }
@@ -294,5 +369,16 @@ namespace RosterApiLambda.ReportRequestHandlers
         public string dateRelinquished { get; set; }
         public string relinquishedTo { get; set; }
         public string reportTagNumberFieldData { get; set; }
+    }
+
+    public class HoldingFacilityHoldingTankMeasurementReportItem
+    {
+        public string holdingTankMeasurementId { get; set; }
+        public string holdingTankId { get; set; }
+        public string holdingTankName { get; set; }
+        public string dateMeasured { get; set; }
+        public double temperature { get; set; }
+        public double salinity { get; set; }
+        public double ph { get; set; }
     }
 }

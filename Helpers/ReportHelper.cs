@@ -10,7 +10,7 @@ using iTextSharp.text.pdf;
 
 namespace RosterApiLambda.Helpers
 {
-    public class ReportHelper
+    public static class ReportHelper
     {
         public static string[] speciesCc = new[] { "CC" };
         public static string[] speciesCm = new[] { "CM" };

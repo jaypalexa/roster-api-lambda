@@ -8,7 +8,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.DataRequestHandlers
 {
-    public class SeaTurtleDataRequestHandler
+    public static class SeaTurtleDataRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

@@ -9,7 +9,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
 {
-    public class HatchlingsAndWashbacksByCountyReportRequestHandler
+    public static class HatchlingsAndWashbacksByCountyReportRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
@@ -51,7 +51,7 @@ namespace RosterApiLambda.ReportRequestHandlers
                         .Where(x => (species.Length == 0 || species.Contains(x.species)) && x.eventType == eventType && x.under5cmClsl == under5cmClsl)
                         .Sum(x => x.eventCount + x.beachEventCount + x.offshoreEventCount);
 
-                DetailItemDto GetSpeciesCounts(string[] species) => 
+                DetailItemDto GetSpeciesCounts(string[] species) =>
                     new DetailItemDto
                     {
                         hatchlingsAcquired = GetHatchlingsEventCount(species, "Acquired"),

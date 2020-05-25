@@ -8,7 +8,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
 {
-    public class TurtleTagReportRequestHandler
+    public static class TurtleTagReportRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

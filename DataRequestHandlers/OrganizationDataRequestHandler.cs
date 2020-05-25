@@ -8,7 +8,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.DataRequestHandlers
 {
-    public class OrganizationDataRequestHandler
+    public static class OrganizationDataRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

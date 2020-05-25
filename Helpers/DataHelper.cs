@@ -23,17 +23,17 @@ namespace RosterApiLambda.Helpers
         };
 
         private Dictionary<string, Condition> GetKeyConditions(string pk, string sk) => new Dictionary<string, Condition> {
-            { 
+            {
                 "PK", new Condition {
                     ComparisonOperator = "EQ",  // ComparisonOperator must be "EQ" for PK
                     AttributeValueList = new List<AttributeValue> { new AttributeValue { S = pk } }
-                } 
+                }
             },
-            { 
+            {
                 "SK", new Condition {
                     ComparisonOperator = "BEGINS_WITH",
                     AttributeValueList = new List<AttributeValue> { new AttributeValue { S = sk } }
-                } 
+                }
             }
         };
 
@@ -169,6 +169,5 @@ namespace RosterApiLambda.Helpers
             var putItemRequest = new PutItemRequest(TABLE_NAME, item);
             _ = await client.PutItemAsync(putItemRequest);
         }
-
     }
 }

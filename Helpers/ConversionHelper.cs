@@ -8,7 +8,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.Helpers
 {
-    public class ConversionHelper
+    public static class ConversionHelper
     {
         public static Task DoConversion(string jsonFileName) // async
         {

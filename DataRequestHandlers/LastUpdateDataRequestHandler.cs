@@ -6,7 +6,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.DataRequestHandlers
 {
-    public class LastUpdateDataRequestHandler
+    public static class LastUpdateDataRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

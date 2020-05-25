@@ -16,7 +16,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
 {
-    public class MarineTurtleCaptiveFacilityQuarterlyReportRequestHandler
+    public static class MarineTurtleCaptiveFacilityQuarterlyReportRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

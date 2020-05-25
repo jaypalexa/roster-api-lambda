@@ -10,7 +10,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.ReportRequestHandlers
 {
-    public class TurtleInjuryReportRequestHandler
+    public static class TurtleInjuryReportRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
@@ -52,7 +52,7 @@ namespace RosterApiLambda.ReportRequestHandlers
             response.summaryItems.Add(GetSummaryItem("DOA", nameof(SeaTurtleModel.injuryDoa)));
             response.summaryItems.Add(GetSummaryItem("Other", nameof(SeaTurtleModel.injuryOther)));
 
-            var noneCount = seaTurtles.Count(x => 
+            var noneCount = seaTurtles.Count(x =>
                 !x.injuryBoatStrike && !x.injuryIntestinalImpaction && !x.injuryLineEntanglement
                 && !x.injuryFishHook && !x.injuryUpperRespiratory && !x.injuryAnimalBite
                 && !x.injuryFibropapilloma && !x.injuryMiscEpidemic && !x.injuryDoa && !x.injuryOther

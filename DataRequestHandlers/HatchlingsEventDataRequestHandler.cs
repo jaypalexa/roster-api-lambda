@@ -8,7 +8,7 @@ using RosterApiLambda.Services;
 
 namespace RosterApiLambda.DataRequestHandlers
 {
-    public class HatchlingsEventDataRequestHandler
+    public static class HatchlingsEventDataRequestHandler
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {

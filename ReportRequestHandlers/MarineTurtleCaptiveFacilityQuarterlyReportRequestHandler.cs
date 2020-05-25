@@ -35,8 +35,8 @@ namespace RosterApiLambda.ReportRequestHandlers
             var organizationAndPermitNumber = $"{organization.organizationName} - {organization.permitNumber}";
 
             string monthsAndYearOfReport;
-            var dateFrom = new DateTime(Convert.ToInt32(reportOptions.dateFrom.Substring(0, 4)), Convert.ToInt32(reportOptions.dateFrom.Substring(5, 2)), Convert.ToInt32(reportOptions.dateFrom.Substring(8, 2)));
-            var dateThru = new DateTime(Convert.ToInt32(reportOptions.dateThru.Substring(0, 4)), Convert.ToInt32(reportOptions.dateThru.Substring(5, 2)), Convert.ToInt32(reportOptions.dateThru.Substring(8, 2)));
+            var dateFrom = ReportHelper.ToDate(reportOptions.dateFrom);
+            var dateThru = ReportHelper.ToDate(reportOptions.dateThru);
 
             if (dateFrom.Year == dateThru.Year)
             {

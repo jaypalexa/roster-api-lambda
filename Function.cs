@@ -19,7 +19,7 @@ namespace RosterApiLambda
     {
         public async Task<RosterResponse> FunctionHandler(RosterRequest request, ILambdaContext context)
         {
-            LambdaLogger.Log($"REQUEST:  {request}");
+            LambdaLogger.Log($"REQUEST:  {request}\r\n");
 
             var response = new RosterResponse();
 

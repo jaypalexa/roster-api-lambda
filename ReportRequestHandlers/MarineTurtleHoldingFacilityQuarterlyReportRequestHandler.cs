@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Amazon.Lambda.Core;
 using AutoMapper;
 using iTextSharp.text.pdf;
 using RosterApiLambda.Dtos;
@@ -20,26 +21,27 @@ namespace RosterApiLambda.ReportRequestHandlers
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
-            var reportOptions = JsonSerializer.Deserialize<MarineTurtleHoldingFacilityQuarterlyReportOptionsDto>(request.body.GetRawText());
+            const int PAGE_1_LINES_PER_PAGE = 8;
+            const int PAGE_2_LINES_PER_PAGE = 22;
 
+            var filledReportFileNames = new List<string>();
             var fileTimestamp = $"{DateTime.Now:yyyyMMddHHmmss} UTC";
-
-            var baseMasterReportFileName = $"MASTER - Marine Turtle Holding Facility Quarterly Report.pdf";
-            //var baseMasterReportFileName = $"MASTER - Marine Turtle Holding Facility Quarterly Report Page 1.pdf";
-            //var baseMasterReportFileName = $"MASTER - Marine Turtle Holding Facility Quarterly Report Page 2.pdf";
-            //var baseMasterReportFileName = $"MASTER - Marine Turtle Holding Facility Quarterly Report Page 3.pdf";
             var basePath = AppDomain.CurrentDomain.BaseDirectory;
+            PdfReader pdfReader;
 
-            var masterReportFileName = Path.Combine(basePath, "pdf", baseMasterReportFileName);
-            var filledReportFileName = Path.Combine("/tmp", baseMasterReportFileName.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp}.pdf"));
+            var reportOptions = JsonSerializer.Deserialize<MarineTurtleHoldingFacilityQuarterlyReportOptionsDto>(request.body.GetRawText());
+            reportOptions.dateFrom ??= "0000-00-00";
+            reportOptions.dateThru ??= "9999-99-99";
+            LambdaLogger.Log($"reportOptions.dateFrom:  {reportOptions.dateFrom}\r\n");
+            LambdaLogger.Log($"reportOptions.dateThru:  {reportOptions.dateThru}\r\n");
 
             var organizationService = new OrganizationService(organizationId);
             var organization = await organizationService.GetOrganization();
             var organizationAndPermitNumber = $"{organization.organizationName} - {organization.permitNumber}";
 
             string monthsAndYearOfReport;
-            var dateFrom = new DateTime(Convert.ToInt32(reportOptions.dateFrom.Substring(0, 4)), Convert.ToInt32(reportOptions.dateFrom.Substring(5, 2)), Convert.ToInt32(reportOptions.dateFrom.Substring(8, 2)));
-            var dateThru = new DateTime(Convert.ToInt32(reportOptions.dateThru.Substring(0, 4)), Convert.ToInt32(reportOptions.dateThru.Substring(5, 2)), Convert.ToInt32(reportOptions.dateThru.Substring(8, 2)));
+            var dateFrom = ReportHelper.ToDate(reportOptions.dateFrom);
+            var dateThru = ReportHelper.ToDate(reportOptions.dateThru);
 
             if (dateFrom.Year == dateThru.Year)
             {
@@ -50,139 +52,256 @@ namespace RosterApiLambda.ReportRequestHandlers
                 monthsAndYearOfReport = $"{dateFrom:dd} {dateFrom:MMMM} {dateFrom.Year} - {dateThru:dd} {dateThru:MMMM} {dateThru.Year}";
             }
 
-            //var balanceAsOfDate = reportOptions.subjectType == "Hatchlings" ? organization.hatchlingsBalanceAsOfDate : organization.washbacksBalanceAsOfDate;
-            //var useOrganizationStartingBalances = !string.IsNullOrEmpty(balanceAsOfDate) && balanceAsOfDate.CompareTo(reportOptions.dateFrom) <= 0;
+            var seaTurtleService = new SeaTurtleService(organizationId);
+            var seaTurtles = (await seaTurtleService.GetSeaTurtles())
+                .Where(x => !string.IsNullOrEmpty(x.dateAcquired) && x.dateAcquired.CompareTo(reportOptions.dateThru) <= 0)
+                .Where(x => string.IsNullOrEmpty(x.dateRelinquished) || (!string.IsNullOrEmpty(x.dateRelinquished) && reportOptions.dateFrom.CompareTo(x.dateRelinquished) <= 0))
+                .OrderBy(x => x.sidNumber)
+                .ThenBy(x => x.dateAcquired)
+                .ThenBy(x => x.seaTurtleName);
 
-            //var items = new Dictionary<string, HoldingFacilityReportItem>
-            //{
-            //    { "Cc", new HoldingFacilityReportItem(ReportHelper.speciesCc) },
-            //    { "Cm", new HoldingFacilityReportItem(ReportHelper.speciesCm) },
-            //    { "Dc", new HoldingFacilityReportItem(ReportHelper.speciesDc) },
-            //    { "Other", new HoldingFacilityReportItem(ReportHelper.speciesOther) },
-            //    { "Unknown", new HoldingFacilityReportItem(ReportHelper.speciesUnknown) }
-            //};
-            //var categories = items.Keys;
+            var config = new MapperConfiguration(cfg =>
+            {
+                cfg.CreateMap<SeaTurtleModel, HoldingFacilityReportItem>();
+            });
+            var mapper = new Mapper(config);
 
-            //var config = new MapperConfiguration(cfg =>
-            //{
-            //    cfg.CreateMap<HatchlingsEventModel, HoldingFacilityReportEvent>();
-            //    cfg.CreateMap<WashbacksEventModel, HoldingFacilityReportEvent>();
-            //});
-            //var mapper = new Mapper(config);
+            var items = new List<HoldingFacilityReportItem>();
 
-            //var hatchlingsEventService = new HatchlingsEventService(organizationId);
-            //var washbacksEventService = new WashbacksEventService(organizationId);
-            //var events = reportOptions.subjectType == "Hatchlings"
-            //    ? (await hatchlingsEventService.GetHatchlingsEvents()).Select(x => mapper.Map<HoldingFacilityReportEvent>(x))
-            //    : (await washbacksEventService.GetWashbacksEvents()).Select(x => mapper.Map<HoldingFacilityReportEvent>(x));
+            foreach (var seaTurtle in seaTurtles)
+            {
+                //'----------------------------------------------------------------
+                //'-- kludge to account for all the data we want to cram into the 
+                //'-- status/tag number line...ugh...
+                //'----------------------------------------------------------------
+                var reportTagNumberFieldData = await GetReportTagNumberFieldData(organizationId, seaTurtle, reportOptions);
+                var lines = ReportHelper.WrapLine(reportTagNumberFieldData, 92);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    var item = new HoldingFacilityReportItem();
+                    if (i == 0)
+                    {
+                        item = mapper.Map<HoldingFacilityReportItem>(seaTurtle);
+                    }
+                    item.reportTagNumberFieldData = lines[i];
+                    items.Add(item);
+                }
+            }
 
-            //int GetCountsPriorToThisPeriod(string[] eventTypes, string[] species) =>
-            //    events
-            //       .Where(x => eventTypes.Contains(x.eventType) && species.Contains(x.species))
-            //       .Where(x => x.eventDate.CompareTo(reportOptions.dateFrom) <= 0)
-            //       .Where(x => !string.IsNullOrEmpty(balanceAsOfDate) && balanceAsOfDate.CompareTo(x.eventDate) <= 0)
-            //       .Sum(x => x.eventCount + x.beachEventCount + x.offshoreEventCount);
+            //-- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] -- [PAGE 1] --
 
-            //int GetCountsForThisPeriod(string eventType, string[] species, string eventCountType = null) =>
-            //    events
-            //       .Where(x => x.eventType == eventType && species.Contains(x.species))
-            //       .Where(x => reportOptions.dateFrom.CompareTo(x.eventDate) <= 0)
-            //       .Where(x => x.eventDate.CompareTo(reportOptions.dateThru) <= 0)
-            //       .Sum(x => eventCountType == "beachEventCount" ? x.beachEventCount : (eventCountType == "offshoreEventCount" ? x.offshoreEventCount : x.eventCount));
+            var baseMasterReportFileName_Page1 = $"MASTER - Marine Turtle Holding Facility Quarterly Report Page 1.pdf";
 
-            //int GetStartingBalance(string category) =>
-            //    useOrganizationStartingBalances
-            //        ? Convert.ToInt32(organization.GetType().GetProperty($"{category.ToLower()}{reportOptions.subjectType}StartingBalance").GetValue(organization))
-            //        : 0;
+            var masterReportFileName_Page1 = Path.Combine(basePath, "pdf", baseMasterReportFileName_Page1);
+            var filledReportFileName_Page1 = Path.Combine("/tmp", baseMasterReportFileName_Page1.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp}.pdf"));
+            filledReportFileNames.Add(filledReportFileName_Page1);
 
-            //----------------------------------------------------------------------------------------------------
-
-            var pdfReader = new PdfReader(masterReportFileName);
+            pdfReader = new PdfReader(masterReportFileName_Page1);
             pdfReader.RemoveUsageRights();
 
-            var fs = new FileStream(filledReportFileName, FileMode.Create);
-            var pdfStamper = new PdfStamper(pdfReader, fs, '\0', false);
+            using (var fs = new FileStream(filledReportFileName_Page1, FileMode.Create))
+            {
+                var pdfStamper = new PdfStamper(pdfReader, fs, '\0', false);
 
-            var info = pdfReader.Info;
-            info["Title"] = baseMasterReportFileName.Replace("MASTER - ", "").Replace(".pdf", $" - {fileTimestamp}.pdf");
-            pdfStamper.MoreInfo = info;
+                var info = pdfReader.Info;
+                info["Title"] = baseMasterReportFileName_Page1.Replace("MASTER - ", "").Replace(".pdf", $" - {fileTimestamp}.pdf");
+                pdfStamper.MoreInfo = info;
 
-            var acroFields = pdfStamper.AcroFields;
+                var acroFields = pdfStamper.AcroFields;
 
-            acroFields.SetField("txtOrganizationAndPermitNumber", organizationAndPermitNumber);
-            acroFields.SetField("txtMonthsAndYearOfReport", monthsAndYearOfReport);
+                acroFields.SetField("txtOrganizationAndPermitNumber", organizationAndPermitNumber);
+                acroFields.SetField("txtMonthsAndYearOfReport", monthsAndYearOfReport);
 
-            //var sbComments = new StringBuilder();
+                var pageOneItems = items.Take(PAGE_1_LINES_PER_PAGE).ToList();
+                for (int i = 0; i < pageOneItems.Count(); i++)
+                {
+                    var item = pageOneItems[i];
+                    FillSectionOneRow(acroFields, (i + 1).ToString().PadLeft(2, '0'), item, reportOptions);
+                }
 
-            //foreach (var category in categories)
-            //{
-            //    var item = items[category];
-
-            //    item.StartingBalance = GetStartingBalance(category);
-
-            //    item.AdditionsBeforeThisPeriod = GetCountsPriorToThisPeriod(new[] { "Acquired" }, item.SpeciesSelector);
-            //    item.SubtractionsBeforeThisPeriod = GetCountsPriorToThisPeriod(new[] { "Died", "Released" }, item.SpeciesSelector);
-            //    item.AcquiredThisPeriod = GetCountsForThisPeriod("Acquired", item.SpeciesSelector);
-            //    item.DiedThisPeriod = GetCountsForThisPeriod("Died", item.SpeciesSelector);
-            //    item.ReleasedOnTheBeachThisPeriod = GetCountsForThisPeriod("Released", item.SpeciesSelector, "beachEventCount");
-            //    item.ReleasedOffshoreThisPeriod = GetCountsForThisPeriod("Released", item.SpeciesSelector, "offshoreEventCount");
-            //    item.DoaThisPeriod = GetCountsForThisPeriod("DOA", item.SpeciesSelector);
-
-            //    item.PreviousBalance = item.StartingBalance + item.AdditionsBeforeThisPeriod - item.SubtractionsBeforeThisPeriod;
-            //    acroFields.SetField($"txt{category}PrevBal", item.PreviousBalance);
-            //    acroFields.SetField($"txt{category}Acquired", item.AcquiredThisPeriod);
-            //    acroFields.SetField($"txt{category}Died", item.DiedThisPeriod);
-            //    acroFields.SetField($"txt{category}Released", item.ReleasedOnTheBeachThisPeriod + item.ReleasedOffshoreThisPeriod);
-            //    acroFields.SetField($"txt{category}EndBal", item.PreviousBalance + item.AcquiredThisPeriod - item.DiedThisPeriod - item.ReleasedOnTheBeachThisPeriod - item.ReleasedOffshoreThisPeriod);
-            //    acroFields.SetField($"txt{category}BeachVsOffshore", $"Beach: {item.ReleasedOnTheBeachThisPeriod}{Environment.NewLine}Offshore: {item.ReleasedOffshoreThisPeriod}");
-
-            //    if (reportOptions.includeDoaCounts)
-            //    {
-            //        sbComments.AppendLine($"DOA {category} hatchlings = {item.DoaThisPeriod}");
-            //    }
-            //}
-
-            //sbComments.AppendLine(reportOptions.comments);
-            //acroFields.SetField("txtComments", sbComments.ToString());
-
-            // =============================================================================
-
-            pdfStamper.FormFlattening = true; // 'true' to make the PDF read-only
-            pdfStamper.Close();
+                pdfStamper.FormFlattening = true; // 'true' to make the PDF read-only
+                pdfStamper.Close();
+            }
             pdfReader.Close();
 
-            var bytes = await File.ReadAllBytesAsync(filledReportFileName);
+            //-- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] -- [PAGE 2] --
+            var page2Items = items.Skip(PAGE_1_LINES_PER_PAGE).ToList().ChunkBy(PAGE_2_LINES_PER_PAGE);
+
+            for (int chunkIndex = 0; chunkIndex < page2Items.Count(); chunkIndex++)
+            {
+                var baseMasterReportFileName_Page2 = $"MASTER - Marine Turtle Holding Facility Quarterly Report Page 2.pdf";
+
+                var masterReportFileName_Page2 = Path.Combine(basePath, "pdf", baseMasterReportFileName_Page2);
+                var filledReportFileName_Page2 = Path.Combine("/tmp", baseMasterReportFileName_Page2.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp} - {chunkIndex.ToString().PadLeft(2, '0')}.pdf"));
+                filledReportFileNames.Add(filledReportFileName_Page2);
+
+                pdfReader = new PdfReader(masterReportFileName_Page2);
+                pdfReader.RemoveUsageRights();
+
+                using (var fs = new FileStream(filledReportFileName_Page2, FileMode.Create))
+                {
+                    var pdfStamper = new PdfStamper(pdfReader, fs, '\0', false);
+
+                    var info = pdfReader.Info;
+                    info["Title"] = baseMasterReportFileName_Page2.Replace("MASTER - ", "").Replace(".pdf", $" - {fileTimestamp}.pdf");
+                    pdfStamper.MoreInfo = info;
+
+                    var acroFields = pdfStamper.AcroFields;
+
+                    acroFields.SetField("txtOrganizationAndPermitNumber", organizationAndPermitNumber);
+                    acroFields.SetField("txtMonthsAndYearOfReport", monthsAndYearOfReport);
+
+                    for (int i = 0; i < page2Items[chunkIndex].Count(); i++)
+                    {
+                        var item = page2Items[chunkIndex][i];
+                        FillSectionOneRow(acroFields, (i + 1 + PAGE_1_LINES_PER_PAGE).ToString().PadLeft(2, '0'), item, reportOptions);
+                    }
+
+                    pdfStamper.FormFlattening = true; // 'true' to make the PDF read-only
+                    pdfStamper.Close();
+                }
+                pdfReader.Close();
+            }
+
+            //-- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] -- [PAGE 3] --
+
+            // =========================================================================================================================
+
+            var masterReportFileName_Final = $"MASTER - Marine Turtle Holding Facility Quarterly Report.pdf";
+            var filledReportFileName_Final = Path.Combine("/tmp", masterReportFileName_Final.Replace("MASTER - ", "FILLED - ").Replace(".pdf", $" - {fileTimestamp}.pdf"));
+
+            ReportHelper.ConcatenatePdfFiles(filledReportFileNames, filledReportFileName_Final);
+
+            var bytes = await File.ReadAllBytesAsync(filledReportFileName_Final);
 
             return bytes;
         }
+
+        private static async Task<string> GetReportTagNumberFieldData(string organizationId, SeaTurtleModel seaTurtle, MarineTurtleHoldingFacilityQuarterlyReportOptionsDto reportOptions)
+        {
+            var sb = new StringBuilder();
+
+            var dateFrom = ReportHelper.ToDate(reportOptions.dateFrom);
+            var dateThru = ReportHelper.ToDate(reportOptions.dateThru);
+
+            //----------------------------------------------------------------
+            //-- display DATE ACQUIRED -only- when requested 
+            //-- and when report date range is for one quarter or less
+            //----------------------------------------------------------------
+            //-- if the DATE ACQUIRED is within the date range of the report, 
+            //-- then do display the ACQUIRED FROM information
+            //----------------------------------------------------------------
+            LambdaLogger.Log($"seaTurtle.dateAcquired:  {seaTurtle.dateAcquired}\r\n");
+            LambdaLogger.Log($"(dateThru.Date - dateFrom.Date).Days:  {(dateThru.Date - dateFrom.Date).Days}\r\n");
+            if (reportOptions.includeAcquiredFrom && !string.IsNullOrEmpty(seaTurtle.dateAcquired) && ((dateThru.Date - dateFrom.Date).Days <= 95))
+            {
+                if ((reportOptions.dateFrom.CompareTo(seaTurtle.dateAcquired) <= 0) && (seaTurtle.dateAcquired.CompareTo(reportOptions.dateThru) <= 0))
+                {
+                    if (!string.IsNullOrEmpty(seaTurtle.acquiredFrom))
+                    {
+                        sb.Append($"Acq. from: {seaTurtle.acquiredFrom}; ");
+                    }
+                }
+            }
+
+            var seaTurtleTagService = new SeaTurtleTagService(organizationId, seaTurtle.seaTurtleId);
+            var seaTurtleTags = await seaTurtleTagService.GetSeaTurtleTags();
+
+            if (seaTurtleTags.Count > 0)
+            {
+                sb.Append($"Tags: {string.Join(", ", seaTurtleTags.Select(x => x.tagNumber))}; ");
+            }
+
+            if (reportOptions.includeAnomalies && !string.IsNullOrEmpty(seaTurtle.anomalies))
+            {
+                sb.Append($"Anomalies: {seaTurtle.anomalies}; ");
+            }
+
+            return sb.ToString();
+        }
+
+        private static void FillSectionOneRow(AcroFields acroFields, string fieldNumber, HoldingFacilityReportItem item, MarineTurtleHoldingFacilityQuarterlyReportOptionsDto reportOptions)
+        {
+            // always set the status/tag number field as it may be a partial line
+            acroFields.SetField($"txtTagNumber{fieldNumber}", item.reportTagNumberFieldData);
+
+            // if NOT a partial line...
+            if (!string.IsNullOrEmpty(item.seaTurtleId))
+            {
+                // *************************************************************************************************
+                // -- Tag Numbers, Acquired From, and Anomalies share the TAG NUMBER field (part of the STATUS field)
+                // -- Relinquished To and Stranding ID Number share the RELINQUISHED TO field (part of the DATE RELEASED/.../... field)
+                // *************************************************************************************************
+
+                var sidNumberAndSeaTurtleName = item.sidNumber;
+                if (reportOptions.includeTurtleName && !string.IsNullOrEmpty(item.seaTurtleName))
+                {
+                    sidNumberAndSeaTurtleName += $" - {item.seaTurtleName}";
+                }
+                acroFields.SetField($"txtSID{fieldNumber}", sidNumberAndSeaTurtleName);
+                LambdaLogger.Log($"sidNumberAndSeaTurtleName:  {sidNumberAndSeaTurtleName}\r\n");
+
+                acroFields.SetField($"cboSpecies{fieldNumber}", item.species);
+
+                acroFields.SetField($"txtDateAcquired{fieldNumber}", item.dateAcquired);
+
+                acroFields.SetField($"cboSize{fieldNumber}", item.turtleSize);
+                acroFields.SetField($"cboStatus{fieldNumber}", item.status);
+
+
+                // ----------------------------------------------------------------
+                // -- if the DATE RELINQUISHED is later than the report date, 
+                // -- then do NOT display the relinquished information
+                // ----------------------------------------------------------------
+                LambdaLogger.Log($"item.dateRelinquished:  {item.dateRelinquished}\r\n");
+                LambdaLogger.Log($"reportOptions:  {reportOptions}\r\n");
+                LambdaLogger.Log($"reportOptions.dateThru:  {reportOptions.dateThru}\r\n");
+
+                var showRelinquishedInfo = item.dateRelinquished.CompareTo(reportOptions.dateThru) <= 0;
+
+                acroFields.SetField($"txtDateRelinquished{fieldNumber}", showRelinquishedInfo ? item.dateRelinquished : string.Empty);
+
+                // *************************************************************************************************
+                // v-- *** RELINQUISHED TO *** RELINQUISHED TO *** RELINQUISHED TO *** RELINQUISHED TO *** RELINQUISHED TO 
+                // *************************************************************************************************
+                // ----------------------------------------------------------------
+                // -- add STRANDING ID NUMBER information here (if any)
+                // ----------------------------------------------------------------
+                var txtRelinquishedTo = string.Empty;
+
+                if (!string.IsNullOrEmpty(item.strandingIdNumber))
+                {
+                    txtRelinquishedTo += $"Stranding ID #: {item.strandingIdNumber};";
+                }
+
+                if (showRelinquishedInfo && !string.IsNullOrEmpty(item.relinquishedTo))
+                {
+                    txtRelinquishedTo += $"Relinq. To: {item.relinquishedTo}";
+                }
+
+                acroFields.SetField($"txtRelinquishedTo{fieldNumber}", txtRelinquishedTo);
+                // *************************************************************************************************
+                // ^-- *** RELINQUISHED TO *** RELINQUISHED TO *** RELINQUISHED TO *** RELINQUISHED TO *** RELINQUISHED TO 
+                // *************************************************************************************************
+            }
+        }
+
     }
 
     public class HoldingFacilityReportItem
     {
-        public string[] SpeciesSelector { get; }
-        public int StartingBalance { get; set; }
-        public int AdditionsBeforeThisPeriod { get; set; }
-        public int SubtractionsBeforeThisPeriod { get; set; }
-        public int AcquiredThisPeriod { get; set; }
-        public int DiedThisPeriod { get; set; }
-        public int ReleasedOnTheBeachThisPeriod { get; set; }
-        public int ReleasedOffshoreThisPeriod { get; set; }
-        public int DoaThisPeriod { get; set; }
-        public int PreviousBalance { get; set; }
-
-        public HoldingFacilityReportItem(string[] speciesSelector)
-        {
-            SpeciesSelector = speciesSelector;
-        }
-    }
-
-    public class HoldingFacilityReportEvent
-    {
-        public string eventType { get; set; }
+        public string seaTurtleId { get; set; }
+        public string seaTurtleName { get; set; }
+        public string sidNumber { get; set; }
+        public string strandingIdNumber { get; set; }
         public string species { get; set; }
-        public string eventDate { get; set; }
-        public int eventCount { get; set; }
-        public int beachEventCount { get; set; }
-        public int offshoreEventCount { get; set; }
+        public string dateAcquired { get; set; }
+        public string acquiredFrom { get; set; }
+        public string acquiredCounty { get; set; }
+        public string turtleSize { get; set; }
+        public string status { get; set; }
+        public string dateRelinquished { get; set; }
+        public string relinquishedTo { get; set; }
+        public string reportTagNumberFieldData { get; set; }
     }
 }

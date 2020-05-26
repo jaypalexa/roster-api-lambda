@@ -63,12 +63,11 @@ namespace RosterApiLambda.ReportRequestHandlers
                 .ThenBy(x => x.dateAcquired)
                 .ThenBy(x => x.seaTurtleName);
 
-            var config = new MapperConfiguration(cfg =>
+            var seaTurtleMapperConfiguration = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<SeaTurtleModel, HoldingFacilitySeaTurtleReportItem>();
-                cfg.CreateMap<HoldingTankMeasurementModel, HoldingFacilityHoldingTankMeasurementReportItem>();
             });
-            var mapper = new Mapper(config);
+            var seaTurtleMapper = new Mapper(seaTurtleMapperConfiguration);
 
             var seaTurtleReportItems = new List<HoldingFacilitySeaTurtleReportItem>();
 
@@ -85,7 +84,7 @@ namespace RosterApiLambda.ReportRequestHandlers
                     var item = new HoldingFacilitySeaTurtleReportItem();
                     if (i == 0)
                     {
-                        item = mapper.Map<HoldingFacilitySeaTurtleReportItem>(seaTurtle);
+                        item = seaTurtleMapper.Map<HoldingFacilitySeaTurtleReportItem>(seaTurtle);
                     }
                     item.reportTagNumberFieldData = lines[i];
                     seaTurtleReportItems.Add(item);
@@ -98,16 +97,18 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             foreach (var holdingTank in holdingTanks)
             {
+                var holdingTankMeasurementMapperConfiguration = new MapperConfiguration(cfg =>
+                {
+                    cfg.CreateMap<HoldingTankMeasurementModel, HoldingFacilityHoldingTankMeasurementReportItem>()
+                        .ConstructUsing(x => new HoldingFacilityHoldingTankMeasurementReportItem(holdingTank.holdingTankName));
+                });
+                var holdingTankMeasurementMapper = new Mapper(holdingTankMeasurementMapperConfiguration);
+
                 var holdingTankMeasurementService = new HoldingTankMeasurementService(organizationId, holdingTank.holdingTankId);
                 var items = (await holdingTankMeasurementService.GetHoldingTankMeasurements())
                     .Where(x => reportOptions.dateFrom.CompareTo(x.dateMeasured) <= 0 && x.dateMeasured.CompareTo(reportOptions.dateThru) <= 0)
-                    .Select(x => mapper.Map<HoldingFacilityHoldingTankMeasurementReportItem>(x))
+                    .Select(x => holdingTankMeasurementMapper.Map<HoldingFacilityHoldingTankMeasurementReportItem>(x))
                     ;
-
-                foreach (var item in items)
-                {
-                    item.holdingTankName = holdingTank.holdingTankName;
-                }
 
                 holdingTankMeasurementReportItems.AddRange(items);
             }
@@ -380,5 +381,10 @@ namespace RosterApiLambda.ReportRequestHandlers
         public double temperature { get; set; }
         public double salinity { get; set; }
         public double ph { get; set; }
+
+        public HoldingFacilityHoldingTankMeasurementReportItem(string holdingTankName)
+        {
+            this.holdingTankName = holdingTankName;
+        }
     }
 }

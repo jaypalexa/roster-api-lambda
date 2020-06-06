@@ -36,10 +36,10 @@ namespace RosterApiLambda.ReportRequestHandlers
                 var seaTurtleTags = await seaTurtleTagService.GetSeaTurtleTags();
                 seaTurtleTags = seaTurtleTags.Where(x =>
                     (reportOptions.isPit && x.tagType == "PIT")
-                    || (reportOptions.isLff && x.location == "LFF")
-                    || (reportOptions.isRff && x.location == "RFF")
-                    || (reportOptions.isLrf && x.location == "LRF")
-                    || (reportOptions.isRrf && x.location == "RRF")
+                    || (reportOptions.isLff && x.location == "LFF" && x.tagType != "PIT")
+                    || (reportOptions.isRff && x.location == "RFF" && x.tagType != "PIT")
+                    || (reportOptions.isLrf && x.location == "LRF" && x.tagType != "PIT")
+                    || (reportOptions.isRrf && x.location == "RRF" && x.tagType != "PIT")
                 ).ToList();
                 var orderedTags = seaTurtleTags.OrderBy(x => x.tagType != "PIT").ThenBy(x => x.location);
                 detailItem.tags = orderedTags.Select(x => new DetailItemTagDto { label = x.tagType == "PIT" ? "PIT" : x.location, tagNumber = x.tagNumber, dateTagged = x.dateTagged }).ToList();

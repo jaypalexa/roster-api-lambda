@@ -94,6 +94,7 @@ namespace RosterApiLambda
 
             body.data = request.resource switch
             {
+                "/last-update" => await LastUpdateDataRequestHandler.Handle(organizationId, request),
                 "/organizations/{organizationId}" => await OrganizationDataRequestHandler.Handle(organizationId, request),
                 "/sea-turtle-list-items" => await SeaTurtleDataRequestHandler.Handle(organizationId, request),
                 "/sea-turtles" => await SeaTurtleDataRequestHandler.Handle(organizationId, request),

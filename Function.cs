@@ -30,14 +30,6 @@ namespace RosterApiLambda
             //    return response;
             //}
 
-            if (request.resource == "/wakeup")
-            {
-                var dataHelper = new DataHelper("wakeup");
-                _ = dataHelper.GetItemAsync("WAKEUP", "WAKEUP");
-                response.body.message = $"{request.resource} at: {DateTime.Now.ToUniversalTime()}";
-                return response;
-            }
-
             var jwt = request.headers["jwt"];
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
 

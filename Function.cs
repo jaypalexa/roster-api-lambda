@@ -103,6 +103,7 @@ namespace RosterApiLambda
                 "/hatchlings-events/{hatchlingsEventId}" => await HatchlingsEventDataRequestHandler.Handle(organizationId, request),
                 "/washbacks-events" => await WashbacksEventDataRequestHandler.Handle(organizationId, request),
                 "/washbacks-events/{washbacksEventId}" => await WashbacksEventDataRequestHandler.Handle(organizationId, request),
+                "/log-entries" => await LogEntryDataRequestHandler.Handle(organizationId, request),
                 _ => throw new ArgumentOutOfRangeException(ErrorHelper.InvalidResource(request.resource)),
             };
 

@@ -79,15 +79,22 @@ namespace RosterApiLambda.ReportRequestHandlers
                 //'----------------------------------------------------------------
                 var reportTagNumberFieldData = await GetReportTagNumberFieldData(organizationId, seaTurtle, reportOptions);
                 var lines = ReportHelper.WrapLine(reportTagNumberFieldData, 92);
-                for (int i = 0; i < lines.Length; i++)
+                if (lines.Length == 0)
                 {
-                    var item = new HoldingFacilitySeaTurtleReportItem();
-                    if (i == 0)
+                    seaTurtleReportItems.Add(seaTurtleMapper.Map<HoldingFacilitySeaTurtleReportItem>(seaTurtle));
+                }
+                else
+                {
+                    for (int i = 0; i < lines.Length; i++)
                     {
-                        item = seaTurtleMapper.Map<HoldingFacilitySeaTurtleReportItem>(seaTurtle);
+                        var item = new HoldingFacilitySeaTurtleReportItem();
+                        if (i == 0)
+                        {
+                            item = seaTurtleMapper.Map<HoldingFacilitySeaTurtleReportItem>(seaTurtle);
+                        }
+                        item.reportTagNumberFieldData = lines[i];
+                        seaTurtleReportItems.Add(item);
                     }
-                    item.reportTagNumberFieldData = lines[i];
-                    seaTurtleReportItems.Add(item);
                 }
             }
 

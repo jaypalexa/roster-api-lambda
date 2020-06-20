@@ -73,28 +73,25 @@ namespace RosterApiLambda.ReportRequestHandlers
 
             foreach (var seaTurtle in seaTurtles)
             {
-                //'----------------------------------------------------------------
-                //'-- kludge to account for all the data we want to cram into the 
-                //'-- status/tag number line...ugh...
-                //'----------------------------------------------------------------
+                //----------------------------------------------------------------
+                //-- kludge to account for all the data we want to cram into the 
+                //-- status/tag number line...ugh...
+                //----------------------------------------------------------------
                 var reportTagNumberFieldData = await GetReportTagNumberFieldData(organizationId, seaTurtle, reportOptions);
                 var lines = ReportHelper.WrapLine(reportTagNumberFieldData, 92);
-                if (lines.Length == 0)
+
+                //-- add main information line for this sea turtle
+                var item = seaTurtleMapper.Map<HoldingFacilitySeaTurtleReportItem>(seaTurtle);
+                item.reportTagNumberFieldData = lines.Length > 0 ? lines[0] : string.Empty;
+                seaTurtleReportItems.Add(item);
+
+                //-- add any status/tag info that overflowed to additional lines
+                for (int i = 1; i < lines.Length; i++)
                 {
-                    seaTurtleReportItems.Add(seaTurtleMapper.Map<HoldingFacilitySeaTurtleReportItem>(seaTurtle));
-                }
-                else
-                {
-                    for (int i = 0; i < lines.Length; i++)
+                    seaTurtleReportItems.Add(new HoldingFacilitySeaTurtleReportItem
                     {
-                        var item = new HoldingFacilitySeaTurtleReportItem();
-                        if (i == 0)
-                        {
-                            item = seaTurtleMapper.Map<HoldingFacilitySeaTurtleReportItem>(seaTurtle);
-                        }
-                        item.reportTagNumberFieldData = lines[i];
-                        seaTurtleReportItems.Add(item);
-                    }
+                        reportTagNumberFieldData = lines[i]
+                    });
                 }
             }
 

@@ -1,13 +1,11 @@
 using System;
 using System.IdentityModel.Tokens.Jwt;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Amazon.Lambda.Core;
 using Microsoft.IdentityModel.Tokens;
 using RosterApiLambda.DataRequestHandlers;
 using RosterApiLambda.Dtos;
 using RosterApiLambda.Helpers;
-using RosterApiLambda.Models;
 using RosterApiLambda.ReportRequestHandlers;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.

@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Amazon.Lambda.Core;
 using AutoMapper;
 using iTextSharp.text.pdf;
 using RosterApiLambda.Dtos;

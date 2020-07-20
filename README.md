@@ -35,6 +35,11 @@ If already installed check if new version is available.
     ./run-all.bat
 ```
 
+### To publish, open a `Package Manager Console` window and run the `publish.ps1` script:
+```
+    ./publish
+```
+
 ----
 
 ## PDF

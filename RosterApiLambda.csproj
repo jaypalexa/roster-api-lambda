@@ -4,13 +4,13 @@
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <AWSProjectType>Lambda</AWSProjectType>
     <LangVersion>latest</LangVersion>
-    <Version>2020.07.10.2130</Version>
+    <Version>2020.07.20.1945</Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Amazon.Lambda.Core" Version="1.1.0" />
     <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="2.0.1" />
     <PackageReference Include="AutoMapper" Version="10.0.0" />
-    <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.3.106.32" />
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.3.106.34" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.7.1" />
   </ItemGroup>
   <ItemGroup>

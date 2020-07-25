@@ -12,8 +12,6 @@ namespace RosterApiLambda.DataRequestHandlers
     {
         public static async Task<object> Handle(string organizationId, RosterRequest request)
         {
-            request.pathParameters.TryGetValue("logEntryId", out string logEntryId);
-
             var logEntryService = new LogEntryService(organizationId);
 
             return request.resource switch

@@ -15,7 +15,7 @@ namespace RosterApiLambda
 {
     public class Function
     {
-        public async Task<RosterResponse> FunctionHandler(RosterRequest request, ILambdaContext context)
+        public async Task<RosterResponse> FunctionHandler(RosterRequest request, ILambdaContext _)
         {
             LambdaLogger.Log($"REQUEST:  {request}\r\n");
 
@@ -86,6 +86,7 @@ namespace RosterApiLambda
                 data = request.resource switch
                 {
                     "/last-update" => await LastUpdateDataRequestHandler.Handle(organizationId, request),
+                    "/home-summary" => await HomeSummaryDataRequestHandler.Handle(organizationId, request),
                     "/organizations/{organizationId}" => await OrganizationDataRequestHandler.Handle(organizationId, request),
                     "/sea-turtle-list-items" => await SeaTurtleDataRequestHandler.Handle(organizationId, request),
                     "/sea-turtles" => await SeaTurtleDataRequestHandler.Handle(organizationId, request),

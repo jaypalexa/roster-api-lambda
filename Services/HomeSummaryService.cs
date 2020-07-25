@@ -1,9 +1,7 @@
-﻿using System;
+﻿using RosterApiLambda.Models;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Amazon.DynamoDBv2.Model;
-using RosterApiLambda.Helpers;
-using RosterApiLambda.Models;
 
 namespace RosterApiLambda.Services
 {

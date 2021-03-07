@@ -31,24 +31,14 @@ namespace RosterApiLambda
             var jwt = request.headers["jwt"];
             var jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
 
-            if (jwtSecurityTokenHandler.CanReadToken(jwt))
-            {
-                var decodedJwt = jwtSecurityTokenHandler.ReadJwtToken(jwt);
-                var organizationId = Convert.ToString(decodedJwt.Payload["custom:organizationId"]);
+            if (!jwtSecurityTokenHandler.CanReadToken(jwt)) throw new SecurityTokenValidationException("Unable to read JWT.");
 
-                if (request.resource.StartsWith("/reports"))
-                {
-                    response.body = await HandleReportRequest(organizationId, request);
-                }
-                else
-                {
-                    response.body = await HandleDataRequest(organizationId, request);
-                }
-            }
-            else
-            {
-                throw new SecurityTokenValidationException("Unable to read JWT.");
-            }
+            var decodedJwt = jwtSecurityTokenHandler.ReadJwtToken(jwt);
+            var organizationId = Convert.ToString(decodedJwt.Payload["custom:organizationId"]);
+
+            response.body = request.resource.StartsWith("/reports")
+                ? await HandleReportRequest(organizationId, request)
+                : await HandleDataRequest(organizationId, request);
 
             return response;
         }
